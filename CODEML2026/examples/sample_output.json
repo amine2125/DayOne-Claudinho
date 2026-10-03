@@ -1,0 +1,447 @@
+{
+  "job_id": "004017b0-476f-4b7f-94a8-25b72f40dc5d",
+  "quality": {
+    "level": "BONNE",
+    "blur_score": 919.3,
+    "brightness": 245.0,
+    "contrast": 203.0,
+    "page_detected": true,
+    "reasons": []
+  },
+  "layout": "formulaire",
+  "needs_retake": false,
+  "retake_reason": null,
+  "records": [
+    {
+      "row_index": 0,
+      "fields": {
+        "date_consultation": {
+          "value": "2025-03-14",
+          "status": "CONNU",
+          "confidence": 0.96,
+          "source": "ocr",
+          "raw_text": "14/03/2025",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.96,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            208,
+            643,
+            252
+          ]
+        },
+        "age": {
+          "value": 28,
+          "status": "A_REVISER",
+          "confidence": 0.62,
+          "source": "ocr",
+          "raw_text": "28 ans",
+          "reasons": [
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.62,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            270,
+            551,
+            314
+          ]
+        },
+        "poids_kg": {
+          "value": 68.0,
+          "status": "CONNU",
+          "confidence": 0.97,
+          "source": "ocr",
+          "raw_text": "68 kg",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.97,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            332,
+            530,
+            376
+          ]
+        },
+        "tension_systolique": {
+          "value": 120,
+          "status": "A_REVISER",
+          "confidence": 0.76,
+          "source": "ocr",
+          "raw_text": "12/8",
+          "reasons": [
+            "cmHg_converti_en_mmHg",
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.95,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 0.8,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            394,
+            521,
+            438
+          ]
+        },
+        "tension_diastolique": {
+          "value": 80,
+          "status": "A_REVISER",
+          "confidence": 0.76,
+          "source": "ocr",
+          "raw_text": "12/8",
+          "reasons": [
+            "cmHg_converti_en_mmHg",
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.95,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 0.8,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            394,
+            521,
+            438
+          ]
+        },
+        "temperature": {
+          "value": 37.5,
+          "status": "A_REVISER",
+          "confidence": 0.744,
+          "source": "ocr",
+          "raw_text": "375",
+          "reasons": [
+            "virgule_manquante_supposee",
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.93,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 0.8,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            456,
+            504,
+            500
+          ]
+        },
+        "age_gestationnel": {
+          "value": 32,
+          "status": "CONNU",
+          "confidence": 0.94,
+          "source": "ocr",
+          "raw_text": "32 SA",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.94,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            518,
+            536,
+            562
+          ]
+        },
+        "hauteur_uterine_cm": {
+          "value": null,
+          "status": "ILLISIBLE",
+          "confidence": 1.0,
+          "source": "ocr",
+          "raw_text": null,
+          "reasons": [
+            "encre_sans_lecture"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": null,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            272,
+            581,
+            832,
+            629
+          ]
+        },
+        "bcf_bpm": {
+          "value": null,
+          "status": "NON_FOURNI",
+          "confidence": 1.0,
+          "source": "ocr",
+          "raw_text": null,
+          "reasons": [
+            "zone_vide"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": null,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            123,
+            643,
+            683,
+            691
+          ]
+        },
+        "vih": {
+          "value": "NEGATIF",
+          "status": "CONNU",
+          "confidence": 0.96,
+          "source": "ocr",
+          "raw_text": "neg",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.96,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            704,
+            501,
+            748
+          ]
+        },
+        "syphilis": {
+          "value": null,
+          "status": "INCONNU",
+          "confidence": 0.9,
+          "source": "ocr",
+          "raw_text": "?",
+          "reasons": [
+            "mention_inconnu"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.9,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            766,
+            460,
+            810
+          ]
+        },
+        "hepatite_c": {
+          "value": "NEGATIF",
+          "status": "CONNU",
+          "confidence": 0.95,
+          "source": "ocr",
+          "raw_text": "negatif",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.95,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            828,
+            558,
+            872
+          ]
+        },
+        "gestite": {
+          "value": 3,
+          "status": "A_REVISER",
+          "confidence": 0.765,
+          "source": "ocr",
+          "raw_text": "G3P2",
+          "reasons": [
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.9,
+            "quality": 1.0,
+            "localisation": 0.85,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            1200,
+            268,
+            1320,
+            308
+          ]
+        },
+        "parite": {
+          "value": 2,
+          "status": "A_REVISER",
+          "confidence": 0.765,
+          "source": "ocr",
+          "raw_text": "G3P2",
+          "reasons": [
+            "confiance_insuffisante"
+          ],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.9,
+            "quality": 1.0,
+            "localisation": 0.85,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            1200,
+            268,
+            1320,
+            308
+          ]
+        },
+        "groupe_sanguin": {
+          "value": "O",
+          "status": "CONNU",
+          "confidence": 0.92,
+          "source": "ocr",
+          "raw_text": "O+",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.92,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            890,
+            484,
+            934
+          ]
+        },
+        "rhesus": {
+          "value": "POSITIF",
+          "status": "CONNU",
+          "confidence": 0.92,
+          "source": "ocr",
+          "raw_text": "O+",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.92,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            890,
+            484,
+            934
+          ]
+        },
+        "mode_accouchement": {
+          "value": "VOIE_BASSE",
+          "status": "CONNU",
+          "confidence": 0.91,
+          "source": "ocr",
+          "raw_text": "VB",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.91,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            952,
+            487,
+            996
+          ]
+        },
+        "complications": {
+          "value": "AUCUNE",
+          "status": "CONNU",
+          "confidence": 0.94,
+          "source": "ocr",
+          "raw_text": "RAS",
+          "reasons": [],
+          "alternatives": [],
+          "signals": {
+            "ocr": 0.94,
+            "quality": 1.0,
+            "localisation": 1.0,
+            "validation": 1.0,
+            "vlm_agreement": null
+          },
+          "bbox": [
+            440,
+            1014,
+            508,
+            1058
+          ]
+        }
+      }
+    }
+  ],
+  "labels_found_ratio": 0.89,
+  "vlm_calls": 0,
+  "timings_ms": {
+    "pretraitement": 90.6,
+    "ocr": 0.1,
+    "mapping_regles_vlm": 11.6,
+    "total": 102.3
+  },
+  "message": "J'ai extrait :\n✅ Date : 14/03/2025\n⚠️ Âge : 28 ans ? (à vérifier)\n✅ Poids : 68 kg\n⚠️ TA : 120/80 mmHg ? (à vérifier)\n⚠️ Température : 37,5 °C ? (à vérifier)\n✅ Âge gestationnel : 32 SA\n❓ Hauteur utérine : illisible\n➖ BCF : non renseigné\n✅ VIH : négatif\n➖ Syphilis : noté inconnu\n✅ Hépatite C : négatif\n⚠️ Gestité : 3 ? (à vérifier)\n⚠️ Parité : 2 ? (à vérifier)\n✅ Groupe sanguin : O\n✅ Rhésus : positif\n✅ Mode d'accouchement : voie basse\n✅ Complications : aucune\n\n7 champ(s) à vérifier. Le registre papier fait foi.\n[Confirmer]   [Corriger]   [Reprendre la photo]"
+}

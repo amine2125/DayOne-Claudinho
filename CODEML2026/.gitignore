@@ -1,0 +1,7 @@
+.venv/
+.venv-ocr/
+__pycache__/
+*.pyc
+.pytest_cache/
+eval/predictions.jsonl
+data/

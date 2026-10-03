@@ -1,0 +1,10 @@
+# Environnement OCR réel — Python 3.11 recommandé (PaddlePaddle n'a pas de build pour 3.14)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+python-multipart>=0.0.9
+rapidfuzz>=3.9
+httpx>=0.27
+pytest>=8
+paddlepaddle>=3.0
+paddleocr>=3.1

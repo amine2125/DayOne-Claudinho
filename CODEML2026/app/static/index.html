@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test extraction registre</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
+    --accent: #2563eb; --accent-soft: #e8efff;
+    --connu: #15803d; --reviser: #b45309; --illisible: #b91c1c; --vide: #6b7280; --inconnu: #4f46e5;
+    --bubble: #dcf8c6; --bubble-text: #111b21; --chat-bg: #efeae2;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1218; --panel: #171b23; --text: #e6e9ef; --muted: #9aa3b2; --border: #2a303b;
+      --accent: #6c9bff; --accent-soft: #1d2a45;
+      --connu: #4ade80; --reviser: #fbbf24; --illisible: #f87171; --vide: #9ca3af; --inconnu: #a5b4fc;
+      --bubble: #005c4b; --bubble-text: #e9edef; --chat-bg: #0b141a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  header .health { color: var(--muted); font-size: 12px; }
+  header label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
+  main { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 22px 10px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; }
+  .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
+  .drop input { display: none; }
+  .docs { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .docs li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+  .docs li.active { border-color: var(--accent); background: var(--accent-soft); }
+  .docs .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .docs .meta { font-size: 12px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+  .chip.bad { color: var(--illisible); border-color: var(--illisible); }
+  .chip.warn { color: var(--reviser); border-color: var(--reviser); }
+  .chip.ok { color: var(--connu); border-color: var(--connu); }
+  .viewer { position: relative; width: 100%; }
+  .viewer img { width: 100%; display: block; border-radius: 6px; }
+  .viewer svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .viewer rect { fill-opacity: .12; stroke-width: 3; vector-effect: non-scaling-stroke; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px -4px 12px; }
+  .tabs button { background: none; border: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; }
+  .tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  td.raw { font-family: var(--mono); font-size: 12px; color: var(--muted); max-width: 160px; overflow-wrap: anywhere; }
+  .status { font-weight: 600; font-size: 12px; }
+  .s-CONNU { color: var(--connu); } .s-A_REVISER { color: var(--reviser); } .s-ILLISIBLE { color: var(--illisible); }
+  .s-NON_FOURNI, .s-NON_APPLICABLE { color: var(--vide); } .s-INCONNU { color: var(--inconnu); }
+  .reasons { font-size: 11px; color: var(--muted); }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; width: 60px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  pre { margin: 0; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
+  .row-title { margin: 14px 0 6px; font-weight: 600; }
+  .chat { background: var(--chat-bg); border-radius: 8px; padding: 16px; min-height: 200px; }
+  .bubble { background: var(--bubble); color: var(--bubble-text); padding: 10px 12px; border-radius: 8px; max-width: 90%; white-space: pre-wrap; box-shadow: 0 1px 1px rgba(0,0,0,.1); }
+  .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .error { color: var(--illisible); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Registre obstétrical · test d'extraction</h1>
+  <label><input type="checkbox" id="useVlm"> Second lecteur local (Ollama)</label>
+  <span class="health" id="health">Vérification du serveur…</span>
+</header>
+
+<main>
+  <section class="panel">
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/*" multiple>
+      <strong>Déposer des photos</strong><br>ou cliquer pour choisir
+    </label>
+    <ul class="docs" id="docs"></ul>
+  </section>
+
+  <section class="panel">
+    <div id="summary"></div>
+    <div id="viewer" class="empty">Envoyez une photo de registre pour voir les zones détectées.</div>
+  </section>
+
+  <section class="panel">
+    <div class="tabs" id="tabs">
+      <button data-tab="fields" class="active">Champs</button>
+      <button data-tab="json">JSON</button>
+      <button data-tab="message">Message</button>
+    </div>
+    <div id="tab-fields"><div class="empty">Aucun résultat.</div></div>
+    <div id="tab-json" hidden>
+      <div class="actions" style="margin:0 0 10px"><button class="btn" id="copyJson">Copier</button><button class="btn" id="dlJson">Télécharger</button></div>
+      <pre id="json"></pre>
+    </div>
+    <div id="tab-message" hidden><div class="chat"><div class="bubble" id="bubble"></div></div></div>
+  </section>
+</main>
+
+<script>
+const COLORS = { CONNU: "--connu", A_REVISER: "--reviser", ILLISIBLE: "--illisible",
+                 NON_FOURNI: "--vide", NON_APPLICABLE: "--vide", INCONNU: "--inconnu" };
+const docs = [];   // {name, status, response, error, url}
+let active = -1;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+fetch("/health").then((r) => r.json()).then((h) => {
+  const vlm = h.vlm_available ? `VLM ${h.vlm_model} prêt` : "VLM indisponible";
+  $("health").innerHTML = h.ok ? `OCR : ${esc(h.ocr_engine)} · ${esc(vlm)}`
+                               : `<span class="error">OCR indisponible : ${esc(h.ocr_error)}</span>`;
+  $("useVlm").checked = h.vlm_enabled && h.vlm_available;
+  $("useVlm").disabled = !h.vlm_available;
+}).catch(() => { $("health").innerHTML = '<span class="error">Serveur injoignable</span>'; });
+
+const drop = $("drop");
+["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
+["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", (ev) => handleFiles(ev.dataTransfer.files));
+$("file").addEventListener("change", (ev) => { handleFiles(ev.target.files); ev.target.value = ""; });
+
+async function handleFiles(files) {
+  for (const f of files) {
+    const doc = { name: f.name, status: "pending", url: URL.createObjectURL(f) };
+    docs.unshift(doc); active = 0; renderDocs(); renderActive();
+    const form = new FormData();
+    form.append("file", f); form.append("debug", "true");
+    form.append("use_vlm", $("useVlm").checked ? "true" : "false");
+    try {
+      const r = await fetch("/extract", { method: "POST", body: form });
+      const body = await r.json();
+      if (!r.ok) throw new Error(body.detail || r.statusText);
+      doc.response = body; doc.status = "done";
+    } catch (e) { doc.error = e.message; doc.status = "error"; }
+    renderDocs(); if (docs[active] === doc) renderActive();
+  }
+}
+
+function counts(resp) {
+  const c = {};
+  for (const rec of resp.records || []) for (const f of Object.values(rec.fields)) c[f.status] = (c[f.status] || 0) + 1;
+  return c;
+}
+
+function renderDocs() {
+  $("docs").innerHTML = docs.map((d, i) => {
+    let meta = '<span class="spinner"></span> traitement…';
+    if (d.status === "error") meta = `<span class="error">${esc(d.error)}</span>`;
+    if (d.status === "done") {
+      const c = counts(d.response);
+      meta = d.response.needs_retake && !d.response.records.length ? "📷 photo à reprendre"
+           : `${c.CONNU || 0} connus · ${(c.A_REVISER || 0) + (c.ILLISIBLE || 0)} à vérifier`;
+    }
+    return `<li class="${i === active ? "active" : ""}" data-i="${i}"><div class="name">${esc(d.name)}</div><div class="meta">${meta}</div></li>`;
+  }).join("");
+  $("docs").querySelectorAll("li").forEach((li) => li.onclick = () => { active = +li.dataset.i; renderDocs(); renderActive(); });
+}
+
+function renderActive() {
+  const d = docs[active];
+  if (!d) return;
+  if (d.status !== "done") {
+    $("summary").innerHTML = "";
+    $("viewer").className = "viewer";
+    $("viewer").innerHTML = `<img src="${d.url}" alt="">`;
+    $("tab-fields").innerHTML = d.status === "error" ? `<p class="error">${esc(d.error)}</p>` : '<div class="empty"><span class="spinner"></span> Extraction en cours…</div>';
+    $("json").textContent = ""; $("bubble").textContent = "";
+    return;
+  }
+  const r = d.response, q = r.quality;
+  const qClass = q.level === "BONNE" ? "ok" : q.level === "MOYENNE" ? "warn" : "bad";
+  $("summary").innerHTML = `<div class="chips">
+      <span class="chip ${qClass}">Qualité ${esc(q.level)}</span>
+      <span class="chip">netteté ${q.blur_score}</span><span class="chip">luminosité ${q.brightness}</span>
+      <span class="chip">mise en page : ${esc(r.layout)}</span>
+      <span class="chip">libellés trouvés ${Math.round(r.labels_found_ratio * 100)} %</span>
+      <span class="chip">VLM ${r.vlm_calls} appel(s)</span>
+      <span class="chip">${r.timings_ms.total ?? "?"} ms</span>
+      ${q.reasons.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}
+      ${r.needs_retake ? `<span class="chip bad">reprendre : ${esc(r.retake_reason)}</span>` : ""}
+    </div>`;
+  renderViewer(d);
+  renderFields(r);
+  const shown = structuredClone(r);
+  if (shown.debug?.image_jpeg_b64) shown.debug.image_jpeg_b64 = `<${shown.debug.image_jpeg_b64.length} caractères base64 omis>`;
+  $("json").textContent = JSON.stringify(shown, null, 2);
+  $("bubble").textContent = r.message;
+}
+
+function renderViewer(d) {
+  const r = d.response, dbg = r.debug;
+  $("viewer").className = "viewer";
+  if (!dbg?.image_jpeg_b64) { $("viewer").innerHTML = `<img src="${d.url}" alt="">`; return; }
+  const [w, h] = dbg.image_size;
+  const rects = [];
+  for (const rec of r.records) for (const [k, f] of Object.entries(rec.fields)) {
+    if (!f.bbox) continue;
+    const [x1, y1, x2, y2] = f.bbox, col = cssVar(COLORS[f.status] || "--vide");
+    rects.push(`<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="${col}" stroke="${col}"><title>${esc(k)} : ${esc(f.value ?? "—")} (${f.status}, ${f.confidence})</title></rect>`);
+  }
+  $("viewer").innerHTML = `<img src="data:image/jpeg;base64,${dbg.image_jpeg_b64}" alt="Image de travail">
+    <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${rects.join("")}</svg>`;
+}
+
+function renderFields(r) {
+  if (!r.records.length) { $("tab-fields").innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
+  $("tab-fields").innerHTML = r.records.map((rec) => `
+    ${r.records.length > 1 ? `<div class="row-title">Ligne ${rec.row_index + 1}</div>` : ""}
+    <table><thead><tr><th>Champ</th><th>Valeur</th><th>Statut</th><th>Confiance</th><th>Brut</th></tr></thead><tbody>
+    ${Object.entries(rec.fields).map(([k, f]) => `<tr>
+      <td>${esc(k)}<div class="reasons">${esc(f.source)}</div></td>
+      <td>${esc(f.value ?? "—")}${f.alternatives?.length ? `<div class="reasons">alt. : ${esc(f.alternatives.join(", "))}</div>` : ""}</td>
+      <td><span class="status s-${f.status}">${f.status}</span>${f.reasons.length ? `<div class="reasons">${esc(f.reasons.join(", "))}</div>` : ""}</td>
+      <td><span class="bar"><i style="width:${Math.round(f.confidence * 100)}%"></i></span>${f.confidence.toFixed(2)}</td>
+      <td class="raw">${esc(f.raw_text ?? "")}</td></tr>`).join("")}
+    </tbody></table>`).join("");
+}
+
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => {
+  document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("active", x === b));
+  ["fields", "json", "message"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+});
+$("copyJson").onclick = () => navigator.clipboard.writeText($("json").textContent);
+$("dlJson").onclick = () => {
+  const d = docs[active]; if (!d?.response) return;
+  const { debug, ...clean } = d.response;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(clean, null, 2)], { type: "application/json" }));
+  a.download = d.name.replace(/\.[^.]+$/, "") + ".json"; a.click();
+};
+</script>
+</body>
+</html>
