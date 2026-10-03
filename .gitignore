@@ -5,3 +5,8 @@ __pycache__/
 .pytest_cache/
 eval/predictions.jsonl
 data/
+*.db
+offline_captures/
+.device_secure_key
+consignes-fr-en.pdf
+manifest.json

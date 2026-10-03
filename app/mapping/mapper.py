@@ -36,6 +36,7 @@ class FieldCandidate:
     localisation: Localisation
     zone: BBox | None = None           # zone de recherche (pour mesure d'encre / crop VLM)
     label_score: float = 100.0
+    alias: str = ""
 
     @property
     def ocr_conf(self) -> float | None:
@@ -71,7 +72,9 @@ Labeled = list[tuple[OCRToken, LabelHit | None]]
 
 
 def _same_line(a: BBox, b: BBox) -> bool:
-    return a.v_overlap(b) >= 0.5
+    if a.v_overlap(b) >= 0.40:
+        return True
+    return abs(a.cy - b.cy) <= max(a.h, b.h) * 0.60
 
 
 def _coverage(spec_keys: set[str]) -> float:
@@ -88,10 +91,13 @@ def _search_side(label: OCRToken, free: list[OCRToken], labels: list[OCRToken], 
     sign = 1 if direction == "right" else -1
 
     def ahead(b: BBox) -> bool:
-        return b.x1 >= lb.x2 - 0.3 * h if sign > 0 else b.x2 <= lb.x1 + 0.3 * h
+        if sign > 0:
+            return (b.cx > lb.cx) and (b.x2 > lb.x2 or b.x1 >= lb.x2 - 0.6 * h)
+        else:
+            return (b.cx < lb.cx) and (b.x1 < lb.x1 or b.x2 <= lb.x1 + 0.6 * h)
 
     def dist(b: BBox) -> float:
-        return b.x1 - lb.x2 if sign > 0 else lb.x1 - b.x2
+        return max(0.0, b.x1 - lb.x2) if sign > 0 else max(0.0, lb.x1 - b.x2)
 
     # Le prochain libellé sur la même ligne borne la zone de valeur
     stops = [dist(o.bbox) for o in labels if o is not label and _same_line(o.bbox, lb) and ahead(o.bbox)]
@@ -114,10 +120,85 @@ def _search_side(label: OCRToken, free: list[OCRToken], labels: list[OCRToken], 
     return picked, zone
 
 
-def _search_below(label: OCRToken, free: list[OCRToken]) -> list[OCRToken]:
+_WATERMARK_WORDS = (
+    "fictif", "fictive", "fictifs", "fictives",
+    "specimen", "spécimen",
+    "modele", "modèle",
+    "synthetique", "synthétique",
+    "aucune donnee reelle", "ne pas utiliser",
+)
+
+_SECTION_HEADER_WORDS = (
+    "antecedents", "antécédents", "grossesse actuelle",
+    "examen clinique", "post-partum", "surveillance",
+    "identification", "deroulement", "consultation",
+)
+
+_TRANSPOSED_VISIT_KEYS = {
+    "date_consultation", "poids_kg", "tension_arterielle", "temperature",
+    "pouls_bpm", "age_gestationnel", "hauteur_uterine_cm", "bcf_bpm",
+    "proteinurie", "glycemie", "hemoglobine",
+}
+
+
+def _is_watermark(text: str | None) -> bool:
+    if not text:
+        return False
+    norm = normalize_text(text)
+    return any(w in norm for w in _WATERMARK_WORDS)
+
+
+def _is_section_header(text: str | None) -> bool:
+    if not text:
+        return False
+    norm = normalize_text(text)
+    return any(w in norm for w in _SECTION_HEADER_WORDS)
+
+
+def _is_better_cand(cand: FieldCandidate, prev: FieldCandidate | None) -> bool:
+    if prev is None:
+        return True
+    if not cand.raw_text and prev.raw_text:
+        return False
+    if cand.raw_text and not prev.raw_text:
+        return True
+
+    # Rejeter les artefacts de filigrane / données fictives
+    prev_wm = _is_watermark(prev.raw_text)
+    cand_wm = _is_watermark(cand.raw_text)
+    if prev_wm and not cand_wm:
+        return True
+    if cand_wm and not prev_wm:
+        return False
+
+    # Préférer les alias plus longs et spécifiques (ex: "nom/prenom de la parturiente" > "patiente")
+    if len(cand.alias) > len(prev.alias) + 2:
+        return True
+    if len(prev.alias) > len(cand.alias) + 2:
+        return False
+
+    # Préférer un meilleur score de reconnaissance du libellé
+    if cand.label_score > prev.label_score:
+        return True
+    if prev.label_score > cand.label_score:
+        return False
+
+    # Préférer une meilleure confiance OCR
+    cand_conf = cand.ocr_conf or 0.0
+    prev_conf = prev.ocr_conf or 0.0
+    return cand_conf > prev_conf
+
+
+def _search_below(label: OCRToken, free: list[OCRToken], spec_key: str = "") -> list[OCRToken]:
+    # Les champs binaires Oui/Non ne doivent pas chercher de texte dessous
+    if spec_key in ("consanguinite", "grossesse_desiree", "hta_chronique", "diabete",
+                    "cesarienne_anterieure", "allaitement", "transfert"):
+        return []
     lb, h = label.bbox, label.bbox.h
     below = [t for t in free
-             if t.bbox.h_overlap(lb) >= 0.3 and 0 <= t.bbox.y1 - lb.y2 + 0.2 * h <= 2.5 * h]
+             if (t.bbox.h_overlap(lb) >= 0.25 or abs(t.bbox.cx - lb.cx) <= max(lb.w, t.bbox.w) * 0.8)
+             and 0 <= t.bbox.y1 - lb.y2 + 0.3 * h <= 2.5 * h
+             and not _is_section_header(t.text)]
     return [min(below, key=lambda t: t.bbox.y1)] if below else []
 
 
@@ -131,32 +212,57 @@ def map_form(page: OCRPage, labeled: Labeled) -> MappingResult:
     for tok, hit in sorted(((t, h) for t, h in labeled if h is not None),
                            key=lambda p: (p[0].bbox.cy, p[0].bbox.x1)):
         direction = "left" if tok.script == "arabic" else "right"
+        spec_key = hit.spec_key
+
+        # Si le libellé "Profession" est sur la même ligne que "Nom du mari", c'est la profession du conjoint
+        if spec_key == "profession_patiente":
+            has_mari = any(t.bbox.v_overlap(tok.bbox) >= 0.4 and h and h.spec_key == "nom_conjoint"
+                           for t, h in labeled)
+            if has_mari:
+                spec_key = "profession_conjoint"
+
+        avail = [t for t in free if id(t) not in used]
+
         if hit.remainder:
-            cand = FieldCandidate(hit.spec_key, hit.remainder, [tok], Localisation.INLINE,
-                                  zone=tok.bbox, label_score=hit.score)
+            # Vérifier si des tokens adjacents sur la même ligne prolongent la valeur (ex: "6 Etudiante")
+            picked, zone = _search_side(tok, avail, labels, page.width, direction)
+            if picked:
+                used.update(id(t) for t in picked)
+                ordered = sorted(picked, key=lambda t: t.bbox.x1, reverse=direction == "left")
+                extra = " ".join(t.text for t in ordered)
+                raw = f"{hit.remainder} {extra}".strip()
+                cand = FieldCandidate(spec_key, raw, [tok] + picked, Localisation.INLINE,
+                                      zone=tok.bbox.union(zone) if zone else tok.bbox,
+                                      label_score=hit.score, alias=hit.alias)
+            else:
+                cand = FieldCandidate(spec_key, hit.remainder, [tok], Localisation.INLINE,
+                                      zone=tok.bbox, label_score=hit.score, alias=hit.alias)
         else:
-            avail = [t for t in free if id(t) not in used]
             picked, zone = _search_side(tok, avail, labels, page.width, direction)
             loc = Localisation.RIGHT
             if not picked:
-                picked = _search_below(tok, avail)
+                picked = _search_below(tok, avail, spec_key)
                 loc = Localisation.BELOW
             if picked:
                 used.update(id(t) for t in picked)
                 ordered = sorted(picked, key=lambda t: t.bbox.x1, reverse=direction == "left")
                 raw = " ".join(t.text for t in ordered)
-                cand = FieldCandidate(hit.spec_key, raw, picked, loc, zone=zone, label_score=hit.score)
+                cand = FieldCandidate(spec_key, raw, picked, loc, zone=zone,
+                                      label_score=hit.score, alias=hit.alias)
             else:
-                cand = FieldCandidate(hit.spec_key, None, [], Localisation.RIGHT, zone=zone,
-                                      label_score=hit.score)
+                cand = FieldCandidate(spec_key, None, [], Localisation.RIGHT, zone=zone,
+                                      label_score=hit.score, alias=hit.alias)
 
         if hit.spec_key == PII:
             pii_zones.append(cand.zone.union(tok.bbox) if cand.zone else tok.bbox)
             continue
-        prev = best.get(hit.spec_key)
-        if prev is None or (prev.raw_text is None and cand.raw_text is not None) \
-                or (cand.raw_text is not None and cand.label_score > prev.label_score):
-            best[hit.spec_key] = cand
+
+        if _is_watermark(cand.raw_text):
+            continue
+
+        prev = best.get(spec_key)
+        if _is_better_cand(cand, prev):
+            best[spec_key] = cand
 
     # Repli par motif pour les champs dont le libellé n'a pas été lu
     remaining = [t for t in free if id(t) not in used]
@@ -168,8 +274,9 @@ def map_form(page: OCRPage, labeled: Labeled) -> MappingResult:
             best[key] = FieldCandidate(key, matches[0].text, matches, Localisation.PATTERN,
                                        zone=matches[0].bbox, label_score=0.0)
 
-    found = {k for k, c in best.items() if c.localisation != Localisation.PATTERN}
-    return MappingResult("formulaire", [MappedRecord(0, best)], pii_zones,
+    found = {k for k, c in best.items() if c.localisation != Localisation.PATTERN and c.raw_text}
+    absent = {k for k in FIELDS_BY_KEY if k not in best}
+    return MappingResult("formulaire", [MappedRecord(0, best)], pii_zones, absent,
                          labels_found_ratio=_coverage(found))
 
 
@@ -183,7 +290,6 @@ def _find_header(labeled: Labeled) -> list[tuple[OCRToken, LabelHit]] | None:
     for t, _ in candidates:
         line = [(o, oh) for o, oh in candidates if _same_line(o.bbox, t.bbox)]
         keys = {oh.spec_key for _, oh in line if oh.spec_key != PII}
-        # "Poids 68  TA 120/80  T 37" : des valeurs sur la même ligne -> formulaire, pas en-tête
         values_on_line = sum(1 for f in free if _same_line(f.bbox, t.bbox) and any(c.isdigit() for c in f.text))
         if values_on_line >= len(line) / 2:
             continue
@@ -197,7 +303,7 @@ def _cluster_rows(tokens: list[OCRToken]) -> list[list[OCRToken]]:
     row_box: list[BBox] = []
     for t in sorted(tokens, key=lambda t: t.bbox.cy):
         for i, box in enumerate(row_box):
-            if box.v_overlap(t.bbox) >= 0.4:
+            if box.v_overlap(t.bbox) >= 0.35 or abs(box.cy - t.bbox.cy) <= max(box.h, t.bbox.h) * 0.5:
                 rows[i].append(t)
                 row_box[i] = box.union(t.bbox)
                 break
@@ -230,7 +336,7 @@ def map_table(page: OCRPage, labeled: Labeled, header: list[tuple[OCRToken, Labe
                 pii_zones.append(zone)
                 continue
             if key in cands:
-                continue                       # colonne en double : on garde la première
+                continue
             raw = " ".join(t.text for t in cell) if cell else None
             cands[key] = FieldCandidate(key, raw, cell, Localisation.TABLE, zone=zone)
         if any(c.raw_text for c in cands.values()):
@@ -241,13 +347,119 @@ def map_table(page: OCRPage, labeled: Labeled, header: list[tuple[OCRToken, Labe
     return MappingResult("tableau", records, pii_zones, absent, labels_found_ratio=_coverage(present))
 
 
+def _find_transposed_table(page: OCRPage, labeled: Labeled) -> MappingResult | None:
+    """Détecte les tableaux orientés en colonnes (ex: Page 3 Visites Prénatales du carnet marocain).
+    Les libellés cliniques sont empilés à gauche (x < 35%), et chaque colonne verticale à droite
+    représente une visite clinique successive.
+    """
+    left_labels = [(t, h) for t, h in labeled
+                   if h is not None and t.bbox.cx < 0.35 * page.width
+                   and h.spec_key in _TRANSPOSED_VISIT_KEYS]
+    if len(left_labels) < 4:
+        return None
+
+    min_y = min(t.bbox.y1 for t, _ in left_labels) - 100
+    max_y = max(t.bbox.y2 for t, _ in left_labels) + 100
+    right_tokens = [t for t, h in labeled
+                    if t.bbox.cx >= 0.35 * page.width and min_y <= t.bbox.cy <= max_y
+                    and not _UNIT_ONLY.match(normalize_text(t.text))]
+
+    # Regroupement par colonnes verticales selon x
+    col_clusters: list[list[OCRToken]] = []
+    cluster_cx: list[float] = []
+    col_tol = max(60.0, 0.045 * page.width)
+    for t in sorted(right_tokens, key=lambda t: t.bbox.cx):
+        for i, cx in enumerate(cluster_cx):
+            if abs(t.bbox.cx - cx) <= col_tol:
+                col_clusters[i].append(t)
+                cluster_cx[i] = sum(tk.bbox.cx for tk in col_clusters[i]) / len(col_clusters[i])
+                break
+        else:
+            col_clusters.append([t])
+            cluster_cx.append(t.bbox.cx)
+
+    # Filtrer les colonnes qui croisent au moins 3 libellés de lignes distincts
+    valid_columns: list[list[OCRToken]] = []
+    for c in col_clusters:
+        matched_keys = set()
+        for lt, lh in left_labels:
+            if any(abs(tk.bbox.cy - lt.bbox.cy) <= max(lt.bbox.h, tk.bbox.h) * 1.3 for tk in c):
+                matched_keys.add(lh.spec_key)
+        if len(matched_keys) >= 3:
+            valid_columns.append(c)
+
+    if len(valid_columns) < 2:
+        return None
+
+    # Construction des enregistrements de visite (un par colonne)
+    records: list[MappedRecord] = []
+    pii_zones: list[BBox] = [t.bbox for t, h in labeled if h is not None and h.spec_key == PII]
+    all_matched_keys = set()
+
+    for idx, col in enumerate(valid_columns):
+        col_x1 = min(t.bbox.x1 for t in col)
+        col_x2 = max(t.bbox.x2 for t in col)
+        cands: dict[str, FieldCandidate] = {}
+
+        for lt, lh in left_labels:
+            cell_tokens = sorted(
+                (tk for tk in col if abs(tk.bbox.cy - lt.bbox.cy) <= max(lt.bbox.h, tk.bbox.h) * 1.3),
+                key=lambda tk: tk.bbox.x1
+            )
+            zone = BBox(col_x1, lt.bbox.y1, col_x2, lt.bbox.y2)
+            if cell_tokens:
+                raw = " ".join(tk.text for tk in cell_tokens)
+                cands[lh.spec_key] = FieldCandidate(lh.spec_key, raw, cell_tokens, Localisation.TABLE,
+                                                    zone=zone, label_score=lh.score)
+                all_matched_keys.add(lh.spec_key)
+            else:
+                cands[lh.spec_key] = FieldCandidate(lh.spec_key, None, [], Localisation.TABLE,
+                                                    zone=zone, label_score=lh.score)
+
+        for tk in col:
+            hit = match_label(tk)
+            if hit and hit.spec_key == PII:
+                pii_zones.append(tk.bbox)
+
+        if any(c.raw_text for c in cands.values()):
+            records.append(MappedRecord(idx, cands))
+
+    absent = {k for k in FIELDS_BY_KEY if k not in all_matched_keys}
+    return MappingResult("tableau_visites", records, pii_zones, absent,
+                         labels_found_ratio=_coverage(all_matched_keys))
+
+
 # --------------------------------------------------------------------------- entrée
 
 def map_page(page: OCRPage) -> MappingResult:
     labeled: Labeled = [(t, match_label(t)) for t in page.tokens]
     if not any(h for _, h in labeled):
         return MappingResult("aucun", [])
+
     header = _find_header(labeled)
     if header is not None:
-        return map_table(page, labeled, header)
+        table_res = map_table(page, labeled, header)
+        form_res = map_form(page, labeled)
+        if form_res.records and table_res.records:
+            for k, cand in form_res.records[0].candidates.items():
+                if cand.raw_text:
+                    if k not in table_res.records[0].candidates or not table_res.records[0].candidates[k].raw_text:
+                        table_res.records[0].candidates[k] = cand
+        return table_res
+
+    transposed = _find_transposed_table(page, labeled)
+    if transposed is not None:
+        # Extraire aussi les champs du formulaire hors tableau (ex: en-tête de patiente, DDR, DPA...)
+        form_res = map_form(page, labeled)
+        if form_res.records and transposed.records:
+            for k, cand in form_res.records[0].candidates.items():
+                if cand.raw_text:
+                    if k not in transposed.records[0].candidates or not transposed.records[0].candidates[k].raw_text:
+                        transposed.records[0].candidates[k] = cand
+            all_found = {k for r in transposed.records for k, c in r.candidates.items() if c.raw_text}
+            transposed.absent_specs = {k for k in FIELDS_BY_KEY if k not in all_found}
+            transposed.labels_found_ratio = _coverage(all_found)
+        return transposed
+
     return map_form(page, labeled)
+

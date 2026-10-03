@@ -20,6 +20,7 @@ class FieldSource(str, Enum):
     OCR = "ocr"
     OCR_VLM = "ocr+vlm"            # OCR et VLM d'accord
     VLM = "vlm"                    # proposé par le VLM seul -> jamais CONNU
+    OMR = "omr"                    # détection par case à cocher (Micro-OMR)
     RULE = "regle"
     MANUAL = "manuel"              # saisi / corrigé par la sage-femme
     NONE = "aucune"
@@ -85,8 +86,11 @@ class ExtractionResponse(BaseModel):
     needs_retake: bool
     retake_reason: str | None = None
     records: list[ExtractionRecord] = []
+    donnees_extraites: dict[str, Any] = Field(default_factory=dict, description="Paires Tag - Valeur directe (sans masquage)")
+    champs_extraits: list[dict[str, Any]] = Field(default_factory=list, description="Liste exhaustive des champs taggés avec confiance et métadonnées")
+    visites_extraites: list[dict[str, Any]] = Field(default_factory=list, description="Tableau des consultations/visites prénatales (Tag - Valeur)")
     labels_found_ratio: float = 0.0
     vlm_calls: int = 0
     timings_ms: dict[str, float] = {}
-    message: str = ""              # texte lisible type WhatsApp (jamais le JSON brut)
-    debug: dict | None = None      # image de travail (zones nominatives noircies), pour la page de test
+    message: str = ""              # texte lisible type WhatsApp
+    debug: dict | None = None      # image de travail et métadonnées OCR

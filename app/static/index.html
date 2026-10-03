@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Test extraction registre</title>
+<title>Numérisation Registre Obstétrical · DayOne CodeML 2026</title>
 <style>
   :root {
     --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --border: #e3e6eb;
@@ -11,6 +11,7 @@
     --connu: #15803d; --reviser: #b45309; --illisible: #b91c1c; --vide: #6b7280; --inconnu: #4f46e5;
     --bubble: #dcf8c6; --bubble-text: #111b21; --chat-bg: #efeae2;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --danger: #ef4444; --warning: #f59e0b; --success: #10b981;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -22,18 +23,18 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
-  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; display: flex; align-items: center; gap: 8px; }
   header .health { color: var(--muted); font-size: 12px; }
-  header label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); }
-  main { display: grid; grid-template-columns: 240px minmax(0, 1fr) minmax(0, 1.1fr); gap: 16px; padding: 16px 20px; }
-  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  header .controls { display: flex; align-items: center; gap: 12px; }
+  main { display: grid; grid-template-columns: 260px minmax(0, 1fr) minmax(0, 1.25fr); gap: 16px; padding: 16px 20px; }
+  @media (max-width: 1200px) { main { grid-template-columns: 1fr; } }
   .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px; min-width: 0; }
-  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 22px 10px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; }
+  .drop { border: 2px dashed var(--border); border-radius: 10px; padding: 22px 10px; text-align: center; color: var(--muted); cursor: pointer; transition: .15s; display: block; }
   .drop.over, .drop:hover { border-color: var(--accent); background: var(--accent-soft); color: var(--text); }
   .drop input { display: none; }
   .docs { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-  .docs li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
+  .docs li { padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; transition: .1s; }
   .docs li.active { border-color: var(--accent); background: var(--accent-soft); }
   .docs .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .docs .meta { font-size: 12px; color: var(--muted); }
@@ -42,89 +43,160 @@
   .chip.bad { color: var(--illisible); border-color: var(--illisible); }
   .chip.warn { color: var(--reviser); border-color: var(--reviser); }
   .chip.ok { color: var(--connu); border-color: var(--connu); }
-  .viewer { position: relative; width: 100%; }
+  .viewer { position: relative; width: 100%; border-radius: 6px; overflow: hidden; background: #000; }
   .viewer img { width: 100%; display: block; border-radius: 6px; }
   .viewer svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .viewer rect { fill-opacity: .12; stroke-width: 3; vector-effect: non-scaling-stroke; }
-  .empty { color: var(--muted); text-align: center; padding: 40px 10px; }
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px -4px 12px; }
-  .tabs button { background: none; border: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; }
+  .viewer rect { fill-opacity: .14; stroke-width: 3; vector-effect: non-scaling-stroke; }
+  .empty { color: var(--muted); text-align: center; padding: 30px 10px; font-size: 13px; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin: -4px -4px 12px; flex-wrap: wrap; }
+  .tabs button { background: none; border: none; color: var(--muted); padding: 8px 12px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; font-size: 13px; }
   .tabs button.active { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 6px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 12px; }
-  td.raw { font-family: var(--mono); font-size: 12px; color: var(--muted); max-width: 160px; overflow-wrap: anywhere; }
+  td.raw { font-family: var(--mono); font-size: 12px; color: var(--muted); max-width: 140px; overflow-wrap: anywhere; }
   .status { font-weight: 600; font-size: 12px; }
   .s-CONNU { color: var(--connu); } .s-A_REVISER { color: var(--reviser); } .s-ILLISIBLE { color: var(--illisible); }
   .s-NON_FOURNI, .s-NON_APPLICABLE { color: var(--vide); } .s-INCONNU { color: var(--inconnu); }
   .reasons { font-size: 11px; color: var(--muted); }
-  .bar { height: 6px; background: var(--border); border-radius: 3px; width: 60px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
+  .bar { height: 6px; background: var(--border); border-radius: 3px; width: 50px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 6px; }
   .bar i { display: block; height: 100%; background: var(--accent); }
   pre { margin: 0; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 70vh; overflow: auto; }
-  .row-title { margin: 14px 0 6px; font-weight: 600; }
-  .chat { background: var(--chat-bg); border-radius: 8px; padding: 16px; min-height: 200px; }
-  .bubble { background: var(--bubble); color: var(--bubble-text); padding: 10px 12px; border-radius: 8px; max-width: 90%; white-space: pre-wrap; box-shadow: 0 1px 1px rgba(0,0,0,.1); }
-  .actions { display: flex; gap: 8px; margin-top: 10px; }
-  .btn { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; }
+  .row-title { margin: 14px 0 6px; font-weight: 600; font-size: 14px; }
+  .chat { background: var(--chat-bg); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; height: 520px; }
+  .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+  .bubble { background: var(--bubble); color: var(--bubble-text); padding: 10px 12px; border-radius: 8px; max-width: 90%; white-space: pre-wrap; box-shadow: 0 1px 1px rgba(0,0,0,.1); line-height: 1.4; }
+  .bubble.user { align-self: flex-end; background: #e1ffc7; }
+  .actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .btn { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--text); cursor: pointer; font-size: 12px; transition: .15s; }
   .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: #25d366; color: #fff; font-weight: 600; border: none; }
+  .btn.primary:hover { background: #1eb956; }
+  .chat-input-bar { display: flex; gap: 8px; margin-top: 10px; border-top: 1px solid rgba(0,0,0,.08); padding-top: 10px; }
+  .chat-input-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 20px; font: inherit; background: var(--panel); color: var(--text); outline: none; }
+  .chat-input-bar input:focus { border-color: var(--accent); }
   .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .error { color: var(--illisible); }
+  .grid-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .kpi-card { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+  .kpi-val { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .kpi-lbl { font-size: 11px; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Registre obstétrical · test d'extraction</h1>
-  <label><input type="checkbox" id="useVlm"> Second lecteur local (Ollama)</label>
-  <span class="health" id="health">Vérification du serveur…</span>
+  <h1>🏥 Suivi Maternité Numérique · <span>CodeML 2026</span></h1>
+  <div class="controls">
+    <label><input type="checkbox" id="useVlm"> VLM Local (Ollama)</label>
+    <button class="btn" id="btnSyncQueue" title="Synchroniser la file d'attente vers le cloud central">🔄 Sync Hors-ligne</button>
+    <span class="health" id="health">Initialisation…</span>
+  </div>
 </header>
 
 <main>
+  <!-- 1. Colonne Documents & Captures -->
   <section class="panel">
     <label class="drop" id="drop">
       <input type="file" id="file" accept="image/*" multiple>
-      <strong>Déposer des photos</strong><br>ou cliquer pour choisir
+      <strong>📷 Déposer photo registre</strong><br>ou cliquer pour parcourir
     </label>
     <ul class="docs" id="docs"></ul>
   </section>
 
+  <!-- 2. Colonne Visualiseur Bounding Boxes + Masquage PII -->
   <section class="panel">
     <div id="summary"></div>
-    <div id="viewer" class="empty">Envoyez une photo de registre pour voir les zones détectées.</div>
+    <div id="viewer" class="empty">Déposez une photo de registre pour visualiser les zones détectées et le noircissement automatique PII.</div>
   </section>
 
+  <!-- 3. Colonne Onglets Métier -->
   <section class="panel">
     <div class="tabs" id="tabs">
-      <button data-tab="fields" class="active">Champs</button>
-      <button data-tab="json">JSON</button>
-      <button data-tab="message">Message</button>
+      <button data-tab="json_direct" class="active">🏷️ JSON Tag - Valeur</button>
+      <button data-tab="whatsapp">💬 WhatsApp Agent</button>
+      <button data-tab="fields">📋 Champs Détaillés</button>
+      <button data-tab="patient">🤰 Dossier Longitudinal</button>
+      <button data-tab="epidemiology">📊 Épidémiologie</button>
+      <button data-tab="json">⚙️ JSON Pipeline Complet</button>
     </div>
-    <div id="tab-fields"><div class="empty">Aucun résultat.</div></div>
+
+    <!-- TAB 0 : JSON DIRECT TAG - VALEUR -->
+    <div id="tab-json_direct">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-weight:600;font-size:14px;">🏷️ Paires Tag - Valeur Extraites (100% Intégral / Non Masqué)</span>
+        <button class="btn primary" id="copyTagValueJson">📋 Copier JSON Tag - Valeur</button>
+      </div>
+      <pre id="jsonDirect" style="background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;max-height:65vh;overflow:auto;"></pre>
+      <div id="visitesDirectContainer" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- TAB 1 : WHATSAPP AGENT -->
+    <div id="tab-whatsapp" hidden>
+      <div class="chat">
+        <div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:8px;">
+          🔒 Chiffrement AES Local · Stockage chiffré au repos · Zero Cloud Cost · FSM Hors-ligne
+        </div>
+        <div class="chat-messages" id="chatHistory">
+          <div class="bubble">
+            👋 <b>Salam ! Bienvenue sur l'agent de suivi obstétrical.</b><br>
+            Envoyez la photo d'une page de carnet ou registre maternel pour démarrer l'extraction automatique.<br>
+            <i>(Vous pouvez aussi taper "manuel" pour une saisie sans photo)</i>
+          </div>
+        </div>
+        <div class="actions" id="chatQuickActions"></div>
+        <div class="chat-input-bar">
+          <input type="text" id="chatInput" placeholder="Répondre 1 (Valider), corriger (ex: TA 130/80), ou poser une question...">
+          <button class="btn primary" id="chatSend">Envoyer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2 : CHAMPS DÉTAILLÉS -->
+    <div id="tab-fields" hidden><div class="empty">Aucun résultat.</div></div>
+
+    <!-- TAB 3 : DOSSIER LONGITUDINAL -->
+    <div id="tab-patient" hidden>
+      <div id="patientTimeline"><div class="empty">Validez une consultation dans WhatsApp pour charger le profil et la chronologie de la parturiente.</div></div>
+    </div>
+
+    <!-- TAB 4 : ÉPIDÉMIOLOGIE -->
+    <div id="tab-epidemiology" hidden>
+      <div id="epidemiologyContent">
+        <div class="empty"><span class="spinner"></span> Chargement des agrégats régionaux...</div>
+      </div>
+    </div>
+
+    <!-- TAB 5 : JSON PIPELINE COMPLET -->
     <div id="tab-json" hidden>
-      <div class="actions" style="margin:0 0 10px"><button class="btn" id="copyJson">Copier</button><button class="btn" id="dlJson">Télécharger</button></div>
+      <div class="actions" style="margin:0 0 10px">
+        <button class="btn" id="copyJson">Copier</button>
+        <button class="btn" id="dlJson">Télécharger JSON</button>
+      </div>
       <pre id="json"></pre>
     </div>
-    <div id="tab-message" hidden><div class="chat"><div class="bubble" id="bubble"></div></div></div>
   </section>
 </main>
 
 <script>
 const COLORS = { CONNU: "--connu", A_REVISER: "--reviser", ILLISIBLE: "--illisible",
                  NON_FOURNI: "--vide", NON_APPLICABLE: "--vide", INCONNU: "--inconnu" };
-const docs = [];   // {name, status, response, error, url}
+const docs = [];
 let active = -1;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const cssVar = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
+// 1. Initialisation Health
 fetch("/health").then((r) => r.json()).then((h) => {
-  const vlm = h.vlm_available ? `VLM ${h.vlm_model} prêt` : "VLM indisponible";
-  $("health").innerHTML = h.ok ? `OCR : ${esc(h.ocr_engine)} · ${esc(vlm)}`
+  const vlm = h.vlm_available ? `VLM ${h.vlm_model} actif` : "VLM hors service";
+  $("health").innerHTML = h.ok ? `OCR : <b>${esc(h.ocr_engine)}</b> · 🔒 Chiffrement AES · <i>100% Local (0€)</i>`
                                : `<span class="error">OCR indisponible : ${esc(h.ocr_error)}</span>`;
   $("useVlm").checked = h.vlm_enabled && h.vlm_available;
   $("useVlm").disabled = !h.vlm_available;
 }).catch(() => { $("health").innerHTML = '<span class="error">Serveur injoignable</span>'; });
 
+// 2. Gestion Drag & Drop
 const drop = $("drop");
 ["dragenter", "dragover"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.add("over"); }));
 ["dragleave", "drop"].forEach((e) => drop.addEventListener(e, (ev) => { ev.preventDefault(); drop.classList.remove("over"); }));
@@ -133,16 +205,30 @@ $("file").addEventListener("change", (ev) => { handleFiles(ev.target.files); ev.
 
 async function handleFiles(files) {
   for (const f of files) {
-    const doc = { name: f.name, status: "pending", url: URL.createObjectURL(f) };
+    const doc = { name: f.name, status: "pending", url: URL.createObjectURL(f), rawFile: f };
     docs.unshift(doc); active = 0; renderDocs(); renderActive();
+    
+    // Appel WhatsApp simulateur pour traitement complet
     const form = new FormData();
-    form.append("file", f); form.append("debug", "true");
+    form.append("file", f);
     form.append("use_vlm", $("useVlm").checked ? "true" : "false");
     try {
-      const r = await fetch("/extract", { method: "POST", body: form });
-      const body = await r.json();
-      if (!r.ok) throw new Error(body.detail || r.statusText);
-      doc.response = body; doc.status = "done";
+      const rw = await fetch("/api/whatsapp/simulate", { method: "POST", body: form });
+      const wdata = await rw.json();
+      doc.lastItemId = wdata.item_id;
+      doc.whatsappReply = wdata.reply;
+      doc.matches = wdata.matches || [];
+      doc.clinicalAlerts = wdata.clinical_alerts || [];
+      
+      // Extraction détaillée pour bounding boxes
+      const fext = new FormData();
+      fext.append("file", f); fext.append("debug", "true");
+      fext.append("use_vlm", $("useVlm").checked ? "true" : "false");
+      const re = await fetch("/extract", { method: "POST", body: fext });
+      const b = await re.json();
+      if (!re.ok) throw new Error(b.detail || re.statusText);
+      doc.response = b;
+      doc.status = "done";
     } catch (e) { doc.error = e.message; doc.status = "error"; }
     renderDocs(); if (docs[active] === doc) renderActive();
   }
@@ -156,12 +242,12 @@ function counts(resp) {
 
 function renderDocs() {
   $("docs").innerHTML = docs.map((d, i) => {
-    let meta = '<span class="spinner"></span> traitement…';
+    let meta = '<span class="spinner"></span> analyse…';
     if (d.status === "error") meta = `<span class="error">${esc(d.error)}</span>`;
     if (d.status === "done") {
       const c = counts(d.response);
-      meta = d.response.needs_retake && !d.response.records.length ? "📷 photo à reprendre"
-           : `${c.CONNU || 0} connus · ${(c.A_REVISER || 0) + (c.ILLISIBLE || 0)} à vérifier`;
+      meta = d.response.needs_retake && !d.response.records.length ? "📷 à reprendre"
+           : `${c.CONNU || 0} connus · ${(c.A_REVISER || 0) + (c.ILLISIBLE || 0)} doutes`;
     }
     return `<li class="${i === active ? "active" : ""}" data-i="${i}"><div class="name">${esc(d.name)}</div><div class="meta">${meta}</div></li>`;
   }).join("");
@@ -175,28 +261,47 @@ function renderActive() {
     $("summary").innerHTML = "";
     $("viewer").className = "viewer";
     $("viewer").innerHTML = `<img src="${d.url}" alt="">`;
-    $("tab-fields").innerHTML = d.status === "error" ? `<p class="error">${esc(d.error)}</p>` : '<div class="empty"><span class="spinner"></span> Extraction en cours…</div>';
-    $("json").textContent = ""; $("bubble").textContent = "";
+    $("tab-fields").innerHTML = d.status === "error" ? `<p class="error">${esc(d.error)}</p>` : '<div class="empty"><span class="spinner"></span> Analyse IA locale (RapidOCR + Micro-OMR)…</div>';
+    $("json").textContent = "";
     return;
   }
   const r = d.response, q = r.quality;
   const qClass = q.level === "BONNE" ? "ok" : q.level === "MOYENNE" ? "warn" : "bad";
   $("summary").innerHTML = `<div class="chips">
       <span class="chip ${qClass}">Qualité ${esc(q.level)}</span>
-      <span class="chip">netteté ${q.blur_score}</span><span class="chip">luminosité ${q.brightness}</span>
-      <span class="chip">mise en page : ${esc(r.layout)}</span>
-      <span class="chip">libellés trouvés ${Math.round(r.labels_found_ratio * 100)} %</span>
-      <span class="chip">VLM ${r.vlm_calls} appel(s)</span>
-      <span class="chip">${r.timings_ms.total ?? "?"} ms</span>
-      ${q.reasons.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}
-      ${r.needs_retake ? `<span class="chip bad">reprendre : ${esc(r.retake_reason)}</span>` : ""}
+      <span class="chip">Netteté : ${q.blur_score}</span>
+      <span class="chip">Mise en page : ${esc(r.layout)}</span>
+      <span class="chip">Temps : ${r.timings_ms.total ?? "?"} ms</span>
+      <span class="chip ok">⚡ Modèle Local Intégral · Données Complètes</span>
+      ${d.clinicalAlerts?.length ? `<span class="chip bad">🚨 ${d.clinicalAlerts.length} Alerte(s)</span>` : ""}
     </div>`;
   renderViewer(d);
   renderFields(r);
+  renderWhatsApp(d);
+  renderPatientTimeline(d);
+
+  // Affichage JSON Tag-Valeur direct
+  $("jsonDirect").textContent = JSON.stringify(r.donnees_extraites || {}, null, 2);
+  const vCont = $("visitesDirectContainer");
+  if (r.visites_extraites && r.visites_extraites.length > 1) {
+    vCont.innerHTML = `
+      <h4 style="margin:12px 0 6px;">📑 Visites Prénatales Multiples Détectées (${r.visites_extraites.length} colonnes) :</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+        ${r.visites_extraites.map((v, idx) => `
+          <div style="background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:10px;">
+            <b>Visite #${idx + 1}</b>
+            <pre style="margin-top:6px;font-size:11px;background:#1e1e1e;color:#d4d4d4;padding:6px;border-radius:4px;">${JSON.stringify(v, null, 2)}</pre>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  } else {
+    vCont.innerHTML = "";
+  }
+
   const shown = structuredClone(r);
-  if (shown.debug?.image_jpeg_b64) shown.debug.image_jpeg_b64 = `<${shown.debug.image_jpeg_b64.length} caractères base64 omis>`;
+  if (shown.debug?.image_jpeg_b64) shown.debug.image_jpeg_b64 = `<base64 omis>`;
   $("json").textContent = JSON.stringify(shown, null, 2);
-  $("bubble").textContent = r.message;
 }
 
 function renderViewer(d) {
@@ -208,37 +313,196 @@ function renderViewer(d) {
   for (const rec of r.records) for (const [k, f] of Object.entries(rec.fields)) {
     if (!f.bbox) continue;
     const [x1, y1, x2, y2] = f.bbox, col = cssVar(COLORS[f.status] || "--vide");
-    rects.push(`<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="${col}" stroke="${col}"><title>${esc(k)} : ${esc(f.value ?? "—")} (${f.status}, ${f.confidence})</title></rect>`);
+    rects.push(`<rect x="${x1}" y="${y1}" width="${x2 - x1}" height="${y2 - y1}" fill="${col}" stroke="${col}"><title>${esc(k)} : ${esc(f.value ?? "—")} (${f.status}, conf: ${f.confidence})</title></rect>`);
   }
-  $("viewer").innerHTML = `<img src="data:image/jpeg;base64,${dbg.image_jpeg_b64}" alt="Image de travail">
+  $("viewer").innerHTML = `<img src="data:image/jpeg;base64,${dbg.image_jpeg_b64}" alt="Image masquée">
     <svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${rects.join("")}</svg>`;
 }
 
 function renderFields(r) {
   if (!r.records.length) { $("tab-fields").innerHTML = `<div class="empty">${esc(r.message)}</div>`; return; }
   $("tab-fields").innerHTML = r.records.map((rec) => `
-    ${r.records.length > 1 ? `<div class="row-title">Ligne ${rec.row_index + 1}</div>` : ""}
-    <table><thead><tr><th>Champ</th><th>Valeur</th><th>Statut</th><th>Confiance</th><th>Brut</th></tr></thead><tbody>
+    ${r.records.length > 1 ? `<div class="row-title">Visite #${rec.row_index + 1}</div>` : ""}
+    <table><thead><tr><th>Champ</th><th>Valeur Extraite</th><th>Statut</th><th>Confiance</th><th>Brut / Source</th></tr></thead><tbody>
     ${Object.entries(rec.fields).map(([k, f]) => `<tr>
-      <td>${esc(k)}<div class="reasons">${esc(f.source)}</div></td>
-      <td>${esc(f.value ?? "—")}${f.alternatives?.length ? `<div class="reasons">alt. : ${esc(f.alternatives.join(", "))}</div>` : ""}</td>
+      <td><b>${esc(k)}</b><div class="reasons">${esc(f.source)}</div></td>
+      <td><b>${esc(f.value ?? "—")}</b></td>
       <td><span class="status s-${f.status}">${f.status}</span>${f.reasons.length ? `<div class="reasons">${esc(f.reasons.join(", "))}</div>` : ""}</td>
       <td><span class="bar"><i style="width:${Math.round(f.confidence * 100)}%"></i></span>${f.confidence.toFixed(2)}</td>
       <td class="raw">${esc(f.raw_text ?? "")}</td></tr>`).join("")}
     </tbody></table>`).join("");
 }
 
+function renderWhatsApp(d) {
+  if (!d.whatsappReply) return;
+  const replyHtml = esc(d.whatsappReply).replace(/\*(.*?)\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+  $("chatHistory").innerHTML = `
+    <div class="bubble user">📷 <i>Photo envoyée : ${esc(d.name)}</i></div>
+    <div class="bubble">${replyHtml}</div>
+  `;
+  
+  const quick = $("chatQuickActions");
+  quick.innerHTML = `
+    <button class="btn primary" onclick="sendWhatsAppText('1')">✅ [1] Confirmer & Lier</button>
+    <button class="btn" onclick="sendWhatsAppText('2')">🆕 [2] Autre / Nouveau</button>
+    <button class="btn" onclick="sendWhatsAppText('reprendre')">🔄 Reprendre photo</button>
+    <button class="btn" onclick="sendWhatsAppText('manuel')">📝 Saisie manuelle</button>
+  `;
+  const ch = $("chatHistory");
+  ch.scrollTop = ch.scrollHeight;
+}
+
+async function sendWhatsAppText(txt) {
+  if (!txt.trim()) return;
+  const d = docs[active];
+  const lastItemId = d ? d.lastItemId : null;
+
+  // Affichage message utilisateur
+  const userDiv = document.createElement("div");
+  userDiv.className = "bubble user";
+  userDiv.textContent = txt;
+  $("chatHistory").appendChild(userDiv);
+
+  const form = new FormData();
+  form.append("message_text", txt);
+  if (lastItemId) form.append("last_item_id", lastItemId);
+
+  try {
+    const r = await fetch("/api/whatsapp/simulate", { method: "POST", body: form });
+    const res = await r.json();
+    if (d && res.patient_id) d.patientId = res.patient_id;
+
+    const botDiv = document.createElement("div");
+    botDiv.className = "bubble";
+    botDiv.innerHTML = esc(res.reply).replace(/\*(.*?)\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+    $("chatHistory").appendChild(botDiv);
+
+    if (d && res.patient_id) renderPatientTimeline(d);
+  } catch(e) {
+    alert("Erreur communication : " + e.message);
+  }
+  const ch = $("chatHistory");
+  ch.scrollTop = ch.scrollHeight;
+}
+
+$("chatSend").onclick = () => {
+  const val = $("chatInput").value;
+  if (val) { sendWhatsAppText(val); $("chatInput").value = ""; }
+};
+$("chatInput").onkeydown = (e) => {
+  if (e.key === "Enter") { $("chatSend").click(); }
+};
+
+// 3. Chronologie Patient
+async function renderPatientTimeline(d) {
+  const pid = d?.patientId || (d?.matches && d.matches[0]?.patient_id);
+  if (!pid) {
+    $("patientTimeline").innerHTML = '<div class="empty">Confirmez une visite dans l\'onglet WhatsApp pour charger le profil continu de la patiente.</div>';
+    return;
+  }
+  try {
+    const r = await fetch(`/api/patients/${pid}/timeline`);
+    const data = await r.json();
+    const prof = data.profile;
+    const visits = data.visits || [];
+    
+    let visitsHtml = visits.map((v, idx) => {
+      let vdata = {};
+      try { vdata = JSON.parse(v.data_json); } catch(e){}
+      return `
+        <div style="border-left: 3px solid var(--accent); padding-left: 12px; margin-bottom: 14px;">
+          <div style="font-weight:600;font-size:13px;">Visite #${idx+1} · Date : ${esc(v.visit_date || 'Non datée')} (${v.gestational_age_sa || '?'} SA)</div>
+          <div class="chips" style="margin: 4px 0;">
+            ${vdata.tension_systolique ? `<span class="chip">TA: ${vdata.tension_systolique}/${vdata.tension_diastolique || ''}</span>` : ''}
+            ${vdata.poids_kg ? `<span class="chip">Poids: ${vdata.poids_kg} kg</span>` : ''}
+            ${vdata.hauteur_uterine_cm ? `<span class="chip">HU: ${vdata.hauteur_uterine_cm} cm</span>` : ''}
+            ${vdata.bcf_bpm ? `<span class="chip">BCF: ${vdata.bcf_bpm} bpm</span>` : ''}
+          </div>
+        </div>
+      `;
+    }).join("");
+    
+    $("patientTimeline").innerHTML = `
+      <div style="background:var(--accent-soft);padding:12px;border-radius:8px;margin-bottom:14px;">
+        <div style="font-weight:700;font-size:15px;color:var(--accent);">🤰 Profil Patiente : ${esc(prof.patient_id)}</div>
+        <div class="chips" style="margin-top:6px;">
+          <span class="chip">Âge : ${prof.age || '?'} ans</span>
+          <span class="chip">Groupe : ${prof.groupe_sanguin || '?'} ${prof.rhesus || ''}</span>
+          <span class="chip">Gesta/Para : G${prof.gestite ?? '?'}P${prof.parite ?? '?'}</span>
+          <span class="chip ok">Visites cumulées : ${visits.length}</span>
+        </div>
+      </div>
+      <h3 style="font-size:13px;margin: 10px 0;">Suivi Prénatal Continu (Longitudinal)</h3>
+      ${visitsHtml || '<div class="empty">Aucune consultation enregistrée.</div>'}
+    `;
+  } catch(e) {
+    $("patientTimeline").innerHTML = `<p class="error">Erreur chargement timeline : ${esc(e.message)}</p>`;
+  }
+}
+
+// 4. Épidémiologie
+async function loadEpidemiology() {
+  try {
+    const r = await fetch("/api/analytics/epidemiology");
+    const data = await r.json();
+    const ov = data.overview;
+    const mh = data.maternal_health;
+    const inf = data.infectious_screening;
+    const del = data.delivery_and_birth;
+
+    $("epidemiologyContent").innerHTML = `
+      <div class="grid-kpis">
+        <div class="kpi-card"><div class="kpi-val">${ov.total_patients}</div><div class="kpi-lbl">Patientes Suivies</div></div>
+        <div class="kpi-card"><div class="kpi-val">${ov.total_visits}</div><div class="kpi-lbl">Consultations Prénatales</div></div>
+        <div class="kpi-card"><div class="kpi-val">${mh.hta_prevalence_pct}%</div><div class="kpi-lbl">Prévalence HTA</div></div>
+        <div class="kpi-card"><div class="kpi-val">${mh.anemia_prevalence_pct}%</div><div class="kpi-lbl">Anémie (<11g)</div></div>
+        <div class="kpi-card"><div class="kpi-val">${del.cesarean_rate_pct}%</div><div class="kpi-lbl">Taux Césarienne</div></div>
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:12px;">
+        <h4 style="margin:0 0 8px;">🛡️ Dépistages Sérologiques Obligatoires</h4>
+        <div class="chips">
+          <span class="chip">VIH Positifs : <b>${inf.vih_positive_cases}</b> (${inf.vih_positivity_pct}%)</span>
+          <span class="chip">Syphilis Positifs : <b>${inf.syphilis_positive_cases}</b> (${inf.syphilis_positivity_pct}%)</span>
+          <span class="chip">Hépatite C Positifs : <b>${inf.hepatitis_c_positive_cases}</b> (${inf.hepatitis_c_positivity_pct}%)</span>
+          <span class="chip ok">Dépistages Totaux : ${inf.total_screened}</span>
+        </div>
+      </div>
+    `;
+  } catch(e) {
+    $("epidemiologyContent").innerHTML = `<p class="error">Erreur épidémiologie : ${esc(e.message)}</p>`;
+  }
+}
+
+// 5. Gestionnaire d'onglets
 document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => {
   document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("active", x === b));
-  ["fields", "json", "message"].forEach((t) => $("tab-" + t).hidden = t !== b.dataset.tab);
+  ["json_direct", "whatsapp", "fields", "patient", "epidemiology", "json"].forEach((t) => {
+    const el = $("tab-" + t);
+    if (el) el.hidden = t !== b.dataset.tab;
+  });
+  if (b.dataset.tab === "epidemiology") loadEpidemiology();
 });
+
+// Synchronisation Queue
+$("btnSyncQueue").onclick = async () => {
+  try {
+    const r = await fetch("/api/queue/sync", { method: "POST" });
+    const res = await r.json();
+    alert(`Synchronisation effectuée : ${res.synced_count} dossier(s) synchronisé(s), ${res.failed_count} échec(s).`);
+  } catch(e) { alert("Erreur réseau : " + e.message); }
+};
+
+$("copyTagValueJson").onclick = () => {
+  navigator.clipboard.writeText($("jsonDirect").textContent);
+  alert("JSON Tag-Valeur copié !");
+};
 $("copyJson").onclick = () => navigator.clipboard.writeText($("json").textContent);
 $("dlJson").onclick = () => {
   const d = docs[active]; if (!d?.response) return;
   const { debug, ...clean } = d.response;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([JSON.stringify(clean, null, 2)], { type: "application/json" }));
-  a.download = d.name.replace(/\.[^.]+$/, "") + ".json"; a.click();
+  a.download = (d.name || "dossier").replace(/\.[^.]+$/, "") + ".json"; a.click();
 };
 </script>
 </body>

@@ -63,11 +63,18 @@ def find_page_quad(img: np.ndarray, min_area_ratio: float = 0.25) -> np.ndarray 
     contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     min_area = min_area_ratio * small.shape[0] * small.shape[1]
     for c in sorted(contours, key=cv2.contourArea, reverse=True)[:5]:
-        if cv2.contourArea(c) < min_area:
+        area = cv2.contourArea(c)
+        if area < min_area:
             break
-        approx = cv2.approxPolyDP(c, 0.02 * cv2.arcLength(c, True), True)
+        peri = cv2.arcLength(c, True)
+        approx = cv2.approxPolyDP(c, 0.02 * peri, True)
         if len(approx) == 4 and cv2.isContourConvex(approx) and _is_paper_edge(gray, approx):
             return _order_corners(approx * ratio)
+        # Fallback boîte englobante orientée (minAreaRect)
+        rect = cv2.minAreaRect(c)
+        box = cv2.boxPoints(rect)
+        if _is_paper_edge(gray, box):
+            return _order_corners(box * ratio)
     return None
 
 
@@ -90,6 +97,11 @@ def find_page_by_threshold(img: np.ndarray, min_area_ratio: float = 0.25) -> np.
         approx = cv2.approxPolyDP(hull, eps * cv2.arcLength(hull, True), True)
         if len(approx) == 4 and _is_paper_edge(gray, approx):
             return _order_corners(approx * ratio)
+    # Repli minAreaRect
+    rect = cv2.minAreaRect(hull)
+    box = cv2.boxPoints(rect)
+    if _is_paper_edge(gray, box):
+        return _order_corners(box * ratio)
     return None
 
 
@@ -144,13 +156,29 @@ def deskew(img: np.ndarray, max_angle: float = 15.0) -> tuple[np.ndarray, float]
     return cv2.warpAffine(img, m, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE), angle
 
 
+def remove_shadows(img: np.ndarray, kernel_size: int = 25) -> np.ndarray:
+    """Élimination des ombres par division morphologique du fond estimé."""
+    planes = cv2.split(img)
+    result_planes = []
+    k = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
+    for plane in planes:
+        dilated = cv2.dilate(plane, k)
+        bg = cv2.medianBlur(dilated, 21)
+        diff = 255 - cv2.absdiff(plane, bg)
+        norm = cv2.normalize(diff, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+        result_planes.append(norm)
+    return cv2.merge(result_planes)
+
+
 def enhance(img: np.ndarray) -> np.ndarray:
-    lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+    """Réhaussement du contraste et de la netteté de l'encre manuscrite."""
+    cleaned = remove_shadows(img)
+    lab = cv2.cvtColor(cleaned, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     l = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(l)
     out = cv2.cvtColor(cv2.merge((l, a, b)), cv2.COLOR_LAB2BGR)
     if settings.denoise:
-        out = cv2.fastNlMeansDenoisingColored(out, None, 5, 5, 7, 21)  # lent : désactivé par défaut
+        out = cv2.fastNlMeansDenoisingColored(out, None, 5, 5, 7, 21)
     return out
 
 

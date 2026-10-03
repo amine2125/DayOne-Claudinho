@@ -23,7 +23,7 @@ def _env(name: str, default):
 @dataclass
 class Settings:
     # --- OCR ---
-    ocr_engine: str = field(default_factory=lambda: _env("ocr_engine", "paddle"))   # paddle | fake
+    ocr_engine: str = field(default_factory=lambda: _env("ocr_engine", "rapid"))   # rapid | paddle | fake
     ocr_languages: list = field(default_factory=lambda: _env("ocr_languages", ["fr", "ar"]))
     max_image_side: int = field(default_factory=lambda: _env("max_image_side", 2000))
     denoise: bool = field(default_factory=lambda: _env("denoise", False))
@@ -34,7 +34,7 @@ class Settings:
     brightness_min: float = field(default_factory=lambda: _env("brightness_min", 45.0))
     washed_out_ink_min: float = field(default_factory=lambda: _env("washed_out_ink_min", 150.0))
     contrast_min: float = field(default_factory=lambda: _env("contrast_min", 60.0))
-    min_labels_ratio: float = field(default_factory=lambda: _env("min_labels_ratio", 0.3))
+    min_labels_ratio: float = field(default_factory=lambda: _env("min_labels_ratio", 0.08))
 
     # --- Statuts (à calibrer) ---
     tau_known: float = field(default_factory=lambda: _env("tau_known", 0.85))

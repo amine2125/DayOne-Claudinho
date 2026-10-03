@@ -167,18 +167,26 @@ def parse_date(text: str, spec: FieldSpec, today: date | None = None) -> ParseRe
 
 def parse_enum(text: str, spec: FieldSpec) -> ParseResult:
     t = normalize_text(text).strip(" .:;")
-    mapping = {normalize_text(k): v for k, v in spec.enum_map.items()}
+    mapping = {normalize_text(str(k)): v for k, v in spec.enum_map.items()}
     if t in mapping:
-        warnings = ["symbole_interprete"] if t in {"+", "-", "(+)", "(-)", "p", "n"} else []
+        warnings = ["symbole_interprete"] if t in {"+", "-", "(+)", "(-)", "p", "n", "x", "v", "区"} else []
         return ParseResult(ok=True, value=mapping[t], warnings=warnings)
-    # Valeur dans une phrase : "négatif (-)", "TPHA neg"
+
+    # 1. Vérification par mots individuels (pour détecter contradictions comme "pos neg")
     words = re.split(r"[\s,;()]+", t)
-    hits = {mapping[w] for w in words if w in mapping and len(w) > 1}
-    if len(hits) == 1:
-        return ParseResult(ok=True, value=hits.pop())
-    if len(hits) > 1:
+    word_hits = [mapping[w] for w in words if w in mapping and (len(w) > 1 or w in {"0", "1", "2", "+", "-"})]
+    distinct_hits = set(word_hits)
+    if len(distinct_hits) > 1:
         return ParseResult.fail("valeurs_contradictoires")
-    # Faute d'OCR légère : "negatlf" -> negatif (seulement sur des mots assez longs)
+    if len(distinct_hits) == 1:
+        return ParseResult(ok=True, value=distinct_hits.pop())
+
+    # 2. Correspondance par sous-chaîne pour les termes médicaux multi-mots (ex: "voie basse non instrumentale")
+    for k, v in sorted(mapping.items(), key=lambda p: -len(p[0])):
+        if len(k) >= 4 and k in t:
+            return ParseResult(ok=True, value=v)
+
+    # 3. Faute d'OCR légère : "negatlf" -> negatif (seulement sur des mots assez longs)
     if len(t) >= 4:
         best = process.extractOne(t, [k for k in mapping if len(k) >= 4], scorer=fuzz.ratio)
         if best and best[1] >= 85:
@@ -196,10 +204,13 @@ def parse_free_text(text: str, spec: FieldSpec) -> ParseResult:
 
 def parse_text(text: str, spec: FieldSpec) -> ParseResult:
     t = re.sub(r"\s+", " ", text).strip(" .:;_")
+    # Supprime un chiffre isolé de case à cocher en début de champ texte (ex: "6 Etudiante")
+    if re.match(r"^[0-9]\s+[A-Za-z\u0600-\u06FF]", t):
+        t = re.sub(r"^[0-9]\s+", "", t).strip()
     return ParseResult(ok=True, value=t) if t else ParseResult.fail("texte_vide")
 
 
-_CODE = re.compile(r"^[A-Z0-9][A-Z0-9\-/]{3,24}$")
+_CODE = re.compile(r"^[A-Z0-9][A-Z0-9\-/]{0,24}$")
 
 
 def parse_code(text: str, spec: FieldSpec) -> ParseResult:

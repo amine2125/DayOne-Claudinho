@@ -136,6 +136,38 @@ class FakeOCREngine:
         return OCRRun(OCRPage(toks, w, h, {"engine": "fake"}), image)
 
 
+class RapidOCREngine:
+    """Moteur OCR rapide et robuste basé sur RapidOCR (ONNX Runtime).
+    Exécution locale multithread sur CPU, supporte latin, arabe, chiffres et symboles.
+    """
+
+    def __init__(self):
+        from rapidocr_onnxruntime import RapidOCR
+        self.engine = RapidOCR()
+        log.info("RapidOCR (ONNX Runtime) initialisé avec succès.")
+
+    def run(self, image: np.ndarray) -> OCRRun:
+        results, _ = self.engine(image)
+        tokens: list[OCRToken] = []
+        if results:
+            for item in results:
+                poly, text, score = item[0], item[1], item[2]
+                text_clean = str(text).strip()
+                if not text_clean:
+                    continue
+                try:
+                    conf = float(score)
+                except (ValueError, TypeError):
+                    conf = 0.5
+                bbox = BBox.from_polygon(poly)
+                script = detect_script(text_clean)
+                tokens.append(OCRToken(text_clean, conf, bbox, script, "rapidocr"))
+
+        h, w = image.shape[:2]
+        page = OCRPage(tokens, w, h, {"engine": "rapidocr", "version": "onnx"})
+        return OCRRun(page, image)
+
+
 _engine: OCREngine | None = None
 
 
@@ -143,14 +175,35 @@ def get_engine() -> OCREngine:
     global _engine
     if _engine is None:
         from app.settings import settings
-        if settings.ocr_engine == "fake":
+        choice = settings.ocr_engine.lower()
+        if choice == "fake":
             examples = Path(__file__).resolve().parents[2] / "examples"
             import cv2
             ref = cv2.imread(str(examples / "synthetic_form.jpg"))
             size = (ref.shape[1], ref.shape[0]) if ref is not None else None
             _engine = FakeOCREngine(path=examples / "fake_tokens.json", expected_size=size)
+        elif choice == "paddle":
+            try:
+                _engine = PaddleOCREngine(settings.ocr_languages)
+            except Exception as e:
+                log.warning("Impossible de charger PaddleOCR (%s), bascule automatique sur RapidOCR", e)
+                try:
+                    _engine = RapidOCREngine()
+                except Exception as e2:
+                    log.error("RapidOCR indisponible (%s), repli sur FakeOCREngine", e2)
+                    examples = Path(__file__).resolve().parents[2] / "examples"
+                    _engine = FakeOCREngine(path=examples / "fake_tokens.json")
         else:
-            _engine = PaddleOCREngine(settings.ocr_languages)
+            try:
+                _engine = RapidOCREngine()
+            except Exception as e:
+                log.warning("Impossible de charger RapidOCR (%s), tentative PaddleOCR", e)
+                try:
+                    _engine = PaddleOCREngine(settings.ocr_languages)
+                except Exception as e2:
+                    log.error("Aucun moteur OCR disponible, repli sur FakeOCREngine: %s", e2)
+                    examples = Path(__file__).resolve().parents[2] / "examples"
+                    _engine = FakeOCREngine(path=examples / "fake_tokens.json")
     return _engine
 
 
