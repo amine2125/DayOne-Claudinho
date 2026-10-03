@@ -1,0 +1,18 @@
+{
+  "page_number": "2",
+  "paddleocr": {
+    "init_s": 1.5,
+    "predict_s": 15.1,
+    "lines": 84,
+    "mean_score": 0.972,
+    "title_found": true,
+    "peak_ram_gb": 1.82
+  },
+  "ollama": {
+    "seconds": 100.1,
+    "title_found": true,
+    "model_ram_gb": 3.69,
+    "eval_tokens": 73,
+    "prompt_tokens": 3827
+  }
+}

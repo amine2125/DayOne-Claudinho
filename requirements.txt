@@ -1,0 +1,5 @@
+# Python 3.12 — installer dans .venv : python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# Ollama s'installe à part : brew install ollama && ollama pull qwen3-vl:4b
+ollama==0.6.3
+paddleocr==3.7.0
+paddlepaddle==3.3.1
