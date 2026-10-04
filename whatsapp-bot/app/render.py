@@ -253,11 +253,14 @@ def link_text(code: str, candidates: list[dict]) -> str:
     return "\n".join(lines)
 
 
-def final_text(record: dict) -> str:
-    """Récapitulatif propre envoyé une fois le registre validé et rattaché."""
-    pages = record.get("pages", [])
-    parts = [f"✅ *Registre enregistré* · code {record.get('patientCode', '')} · {len(pages)} page(s)"]
+def final_text(final: dict) -> str:
+    """Récapitulatif envoyé à la fin, tiré du résultat final stocké (GET /api/records/{id}/final)."""
+    pages = final.get("pages", [])
+    parts = [f"✅ *Registre enregistré* · code {final.get('patient_code', '')} · {len(pages)} page(s)"]
     for i, page in enumerate(pages):
-        parts.append(f"\n📄 *Page {i + 1} · {page_name(page)}*\n{values_text(page)}")
-    parts.append("\n📊 Le dossier est visible sur le tableau de bord.")
+        # Résultat final : liste de champs -> même forme que les pages de l'API pour la mise en forme
+        view = {"pageType": page.get("page_type"), "title": page.get("title"),
+                "fields": {f["key"]: f for f in page.get("fields", [])}}
+        parts.append(f"\n📄 *Page {i + 1} · {page_name(view)}*\n{values_text(view)}")
+    parts.append(f"\n🗂️ Résultat final enregistré (dossier {final.get('record_id', '')}), visible sur le tableau de bord.")
     return "\n".join(parts)

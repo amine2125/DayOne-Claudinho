@@ -139,6 +139,58 @@ async def test_photos_grouped_then_code_then_reading(wa):
     assert rec["midwifeId"].startswith("wa-") and PHONE not in rec["midwifeId"]
 
 
+@pytest.mark.asyncio
+async def test_each_photo_is_stored_and_read_as_soon_as_it_arrives(wa):
+    await photo("page-a")
+    rid = session().record_id
+    rec = store.record(rid, str)                  # avant « Terminé » : déjà dans la base, déjà lu
+    assert len(rec["pages"]) == 1 and rec["pages"][0]["fields"] and rec["patientCode"] == ""
+    assert "enregistrée" in wa.last
+    await photo("page-b")
+    rec = store.record(rid, str)
+    assert [p["index"] for p in rec["pages"]] == [0, 1] and all(p["fields"] for p in rec["pages"])
+    assert rec["state"] == "NEEDS_REVIEW"
+    photos = list(store.CAPTURES.glob("*_original.enc"))
+    assert len(photos) == 2 and all(b"page-" not in f.read_bytes() for f in photos)   # chiffrées
+
+
+@pytest.mark.asyncio
+async def test_code_read_on_the_page_is_proposed(wa, monkeypatch):
+    from api.demo import extract_page
+
+    def with_record_number(data, use_model=True, **kw):
+        pred = extract_page(data, use_model=use_model, **kw)
+        pred["fields"].append({"id": "n_de_fiche", "label": "N° de fiche", "kind": "text",
+                               "value": "amn-27", "status": "KNOWN", "confidence": 0.95, "source": "ocr"})
+        return pred
+    monkeypatch.setattr(store, "extractor", lambda: with_record_number)
+    await photo()
+    await text("btn_done")
+    assert "Code patiente lu sur le registre : *AMN-27*" in wa.last
+    await text("1")
+    assert db_record()["patientCode"] == "AMN-27" and "Page 1/1" in wa.last
+
+
+@pytest.mark.asyncio
+async def test_final_json_is_stored_with_corrections_and_patient(wa):
+    await start_review(wa)
+    nf = next(f for f in render.numbered_fields(session().page) if f.kind == "integer")
+    await text("2")
+    await text(str(nf.number))
+    await text("41")
+    record_id = session().record_id
+    await text("1")
+    if state() == conversation.State.CONFIRM_UNCERTAIN:
+        await text("1")
+    await text("1")                               # créer la patiente
+    final = store.final_json(record_id)
+    assert final["format"] == "dayone.record.v1" and final["patient_code"] == "AMN-27"
+    assert final["patient_id"] and final["visit_id"] and final["validated_at"] and final["linked_at"]
+    corrected = next(f for f in final["pages"][0]["fields"] if f["key"] == nf.key)
+    assert corrected["value"] == 41 and corrected["origin"] == "CORRECTED"
+    assert record_id in wa.last and "Registre enregistré" in wa.last   # récapitulatif tiré du JSON final
+
+
 # --- Menu ---
 
 @pytest.mark.asyncio
@@ -305,10 +357,9 @@ async def test_api_down_gives_clear_message(wa, monkeypatch):
         return httpx.AsyncClient(transport=httpx.MockTransport(lambda r: (_ for _ in ()).throw(httpx.ConnectError("down"))),
                                  base_url="http://dayone")
     monkeypatch.setattr(backend, "_client", broken)
-    await photo()
-    await text("btn_done")
-    await text("AMN-27")
+    await photo()                                 # la photo part tout de suite vers l'API
     assert "injoignable" in wa.last
+    assert state() == conversation.State.IDLE     # rien n'est perdu : la sage-femme renvoie la photo
 
 
 # --- Rendu et saisie ---

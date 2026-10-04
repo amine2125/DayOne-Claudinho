@@ -85,8 +85,13 @@ export interface RegistryRecord {
   createdAt: string
   state: LifecycleState
   history: LifecycleEvent[]
-  /** Code as written on the paper registry, typed by the midwife. */
+  /** Code as written on the paper registry, typed by the midwife. Empty until she gives it. */
   patientCode: string
+  /** Code read on a page ("N° de fiche"), offered to the midwife while patientCode is empty. */
+  codeSuggestion?: string
+  validatedAt?: string
+  /** The approved result is stored (GET /api/records/{id}/final). */
+  hasFinal?: boolean
   patientId?: string
   visitId?: string
   pages: Page[]

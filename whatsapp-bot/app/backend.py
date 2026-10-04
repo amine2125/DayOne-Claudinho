@@ -63,10 +63,24 @@ def _file(name: str, photo: tuple[bytes, str]) -> tuple:
     return (name, data, mime)
 
 
-async def create_record(photos: list[tuple[bytes, str]], patient_code: str, phone: str) -> str:
-    files = [("files", _file(f"page{i + 1}.jpg", p)) for i, p in enumerate(photos)]
-    data = {"patient_code": patient_code, "midwife_id": midwife_id(phone)}
-    return (await _call("POST", "/api/records", files=files, data=data))["id"]
+async def create_record(photo: tuple[bytes, str], phone: str) -> str:
+    """Dossier créé dès la 1re photo : elle est enregistrée (chiffrée) et sa lecture commence."""
+    files = [("files", _file("page1.jpg", photo))]
+    return (await _call("POST", "/api/records", files=files, data={"midwife_id": midwife_id(phone)}))["id"]
+
+
+async def add_page(record_id: str, photo: tuple[bytes, str]) -> int:
+    """Page suivante : enregistrée tout de suite, lue en arrière-plan."""
+    return (await _call("POST", f"/api/records/{record_id}/pages", files={"file": _file("page.jpg", photo)}))["index"]
+
+
+async def set_code(record_id: str, code: str) -> str:
+    return (await _call("POST", f"/api/records/{record_id}/code", json={"code": code}))["patientCode"]
+
+
+async def get_final(record_id: str) -> dict:
+    """Résultat final stocké par l'API à la validation (complété par la patiente choisie)."""
+    return await _call("GET", f"/api/records/{record_id}/final")
 
 
 async def get_record(record_id: str) -> dict:

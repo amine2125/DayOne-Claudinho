@@ -72,6 +72,8 @@ export const fr = {
   'reason.valeur_douteuse': 'Lecture incertaine',
   'review.readAs': 'lu « {v} »',
 
+  'record.codePending': 'Code à venir',
+  'record.finalJson': 'Résultat final (JSON)',
   // page types
   'page.unknown': 'Page non reconnue',
   'page.fiche_surveillance': 'Fiche de surveillance',

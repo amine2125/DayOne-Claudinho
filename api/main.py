@@ -4,13 +4,15 @@ Lancement : .venv/bin/uvicorn api.main:app --port 8000
 Puis http://localhost:8000/docs pour essayer les routes.
 
 - Le tableau de bord (web/) lit /api/snapshot et les images masquées.
-- L'agent WhatsApp (whatsapp-bot/) appelle les routes /api/records : capture, suivi de la
-  lecture, reprise d'une page, vérification des champs, validation et choix de la patiente.
+- L'agent WhatsApp (whatsapp-bot/) appelle les routes /api/records : chaque photo est enregistrée
+  dès sa réception puis lue en arrière-plan ; code patiente, reprise d'une page, vérification des
+  champs, validation (résultat final figé : /final) et choix de la patiente.
 
 Sans PaddleOCR ni Ollama sur la machine : DAYONE_DEMO_EXTRACT=1 rejoue des sorties enregistrées.
 """
 
 import importlib.util
+import json
 import threading
 from contextlib import asynccontextmanager
 from typing import Literal
@@ -123,15 +125,59 @@ def page_image(page_id: str) -> Response:
 def create_record(
     background: BackgroundTasks,
     files: list[UploadFile] = File(..., description="Une ou plusieurs pages du même registre"),
-    patient_code: str = Form(..., description="Code écrit sur le registre"),
     midwife_id: str = Form(..., description="Identifiant de la sage-femme"),
+    patient_code: str = Form("", description="Code écrit sur le registre (peut être donné plus tard : /code)"),
 ) -> dict:
     """Enregistre la capture tout de suite (chiffrée), puis la lit en arrière-plan."""
-    if not patient_code.strip():
-        raise HTTPException(422, "Code patiente vide")
-    record_id = store.create_record(patient_code, midwife_id.strip(), [_read(f) for f in files])
+    if not midwife_id.strip():
+        raise HTTPException(422, "Identifiant de la sage-femme vide")
+    try:
+        record_id = store.create_record(patient_code, midwife_id.strip(), [_read(f) for f in files])
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
     background.add_task(store.process_record, record_id)
     return {"id": record_id, "state": "PENDING_AI"}
+
+
+@app.post("/api/records/{record_id}/pages", status_code=202)
+def add_page(record_id: str, background: BackgroundTasks,
+             file: UploadFile = File(..., description="Page suivante du même registre")) -> dict:
+    """Page suivante : enregistrée tout de suite (chiffrée), lue en arrière-plan."""
+    _record_or_404(record_id)
+    try:
+        index = store.add_page(record_id, _read(file))
+    except store.TransitionError as e:
+        raise HTTPException(409, str(e)) from e
+    background.add_task(store.process_record, record_id)
+    return {"id": record_id, "index": index, "state": "PENDING_AI"}
+
+
+class CodeChoice(BaseModel):
+    code: str
+
+
+@app.post("/api/records/{record_id}/code")
+def set_code(record_id: str, body: CodeChoice) -> dict:
+    """Code patiente écrit sur le registre (donné après la capture)."""
+    _record_or_404(record_id)
+    try:
+        return {"id": record_id, "patientCode": store.set_code(record_id, body.code)}
+    except ValueError as e:              # vide ou trop long
+        raise HTTPException(422, str(e)) from e
+    except store.TransitionError as e:
+        raise HTTPException(409, str(e)) from e
+
+
+@app.get("/api/records/{record_id}/final")
+def final(record_id: str) -> Response:
+    """Résultat final approuvé par la sage-femme (JSON), disponible après la validation."""
+    _record_or_404(record_id)
+    data = store.final_json(record_id)
+    if data is None:
+        raise HTTPException(404, "Dossier pas encore validé")
+    body = json.dumps(data, ensure_ascii=False, indent=2)
+    return Response(body, media_type="application/json",
+                    headers={"Content-Disposition": f'inline; filename="{record_id}.json"'})
 
 
 @app.get("/api/records/{record_id}")

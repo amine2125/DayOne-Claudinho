@@ -137,3 +137,77 @@ def test_liaison_explicite_puis_code_proche_propose():
     cands = store.candidates(second)
     assert cands[0]["patientId"] == pid and cands[0]["reasons"][0]["kind"] == "SIMILAR_CODE"
     assert store.snapshot(str)["records"][second].get("patientId") is None
+
+
+def test_pages_ajoutees_pendant_la_lecture():
+    """Photo 2 envoyée avant la lecture de la photo 1 : le dossier n'est « lu » qu'une fois les deux lues."""
+    rid = store.create_record("", "SF-014", [b"p1"])
+    store.add_page(rid, b"p2")
+    store.process_record(rid, extract=fake_extract)
+    rec = store.snapshot(str)["records"][rid]
+    assert rec["state"] == "NEEDS_REVIEW" and all(p["fields"] for p in rec["pages"])
+
+    store.add_page(rid, b"p3")                    # dossier déjà lu : il repasse en lecture
+    assert store.snapshot(str)["records"][rid]["state"] == "PENDING_AI"
+    store.process_record(rid, extract=fake_extract)
+    rec = store.snapshot(str)["records"][rid]
+    assert rec["state"] == "NEEDS_REVIEW" and len(rec["pages"]) == 3
+    assert "ADD page 2" in [h.get("note") for h in rec["history"]]
+
+
+def test_lecture_partielle_attend_les_autres_pages():
+    """Une lecture qui finit alors qu'une page attend encore ne déclare pas le dossier lu."""
+    rid = store.create_record("", "SF-014", [b"p1"])
+
+    def slow(data, use_model=True):
+        if data == b"p1":
+            store.add_page(rid, b"p2")            # la sage-femme envoie la page 2 pendant la lecture
+        return fake_extract(data)
+
+    store.process_record(rid, extract=slow)
+    assert store.snapshot(str)["records"][rid]["state"] == "PENDING_AI"
+    store.process_record(rid, extract=fake_extract)      # la lecture de la page 2 (tâche suivante)
+    assert store.snapshot(str)["records"][rid]["state"] == "NEEDS_REVIEW"
+
+
+def test_code_donne_apres_la_capture():
+    rid = captured("")
+    assert store.snapshot(str)["records"][rid]["patientCode"] == ""
+    resolve_all(rid)
+    store.validate(rid)
+    with pytest.raises(store.TransitionError):
+        store.link(rid, "CREATE")                 # pas de patiente sans code
+    with pytest.raises(ValueError):
+        store.set_code(rid, "   ")
+    assert store.set_code(rid, " amn-27 ") == "AMN-27"
+    pid = store.link(rid, "CREATE")
+    with pytest.raises(store.TransitionError):
+        store.set_code(rid, "AUTRE")              # patiente choisie : le code ne change plus
+    assert store.snapshot(str)["patients"][pid]["code"] == "AMN-27"
+
+
+def test_resultat_final_fige_a_la_validation_puis_complete():
+    rid = captured()
+    assert store.final_json(rid) is None
+    store.set_field(rid, 0, "age", "SF-014", value=32, status="KNOWN")
+    resolve_all(rid)
+    store.validate(rid)
+    final = store.final_json(rid)
+    assert final["validated_at"] and final["patient_id"] is None
+    age = next(f for f in final["pages"][0]["fields"] if f["key"] == "age")
+    assert (age["value"], age["aiValue"], age["origin"], age["label"]) == (32, 31, "CORRECTED", "Age")
+    pid = store.link(rid, "CREATE")
+    final = store.final_json(rid)
+    assert final["patient_id"] == pid and final["state"] == "SYNCED" and final["linked_at"]
+    rec = store.snapshot(str)["records"][rid]
+    assert rec["hasFinal"] and rec["validatedAt"]
+
+
+def test_code_lu_sur_la_page_propose():
+    pred = {**PRED, "fields": PRED["fields"] + [{"id": "n_de_fiche", "label": "N° de fiche", "kind": "text",
+                                                  "value": "amn 27", "status": "KNOWN", "confidence": 0.9}]}
+    rid = store.create_record("", "SF-014", [b"photo"])
+    store.process_record(rid, extract=lambda d, use_model=True: dict(pred))
+    assert store.snapshot(str)["records"][rid]["codeSuggestion"] == "AMN27"
+    store.set_code(rid, "AMN-27")
+    assert "codeSuggestion" not in store.snapshot(str)["records"][rid]

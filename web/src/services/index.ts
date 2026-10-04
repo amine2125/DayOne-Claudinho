@@ -3,9 +3,14 @@ import { STATUSES_TO_REVIEW } from '@/contract/enums'
 import { WAITING_FOR_NETWORK } from '@/contract/lifecycle'
 import type { Field, Page, Patient, RegistryRecord } from '@/contract/types'
 import type { AppState, DayOneApi } from './api'
-import { httpApi } from './httpApi'
+import { API_URL, httpApi } from './httpApi'
 
 export const api: DayOneApi = httpApi
+
+/** Approved result of a record, as stored by the API at validation (JSON). */
+export function finalUrl(recordId: string): string {
+  return `${API_URL}/api/records/${recordId}/final`
+}
 
 export function useAppState<T>(select: (s: AppState) => T): T {
   return useSyncExternalStore(api.subscribe, () => select(api.getState()))

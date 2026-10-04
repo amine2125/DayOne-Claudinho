@@ -89,3 +89,24 @@ def test_parcours_whatsapp_par_l_api(monkeypatch):
 
     # Une page lue ne se retire pas
     assert client.post(f"/api/records/{rid}/pages/0/drop").status_code == 409
+
+
+def test_capture_page_par_page_puis_code_et_resultat_final(monkeypatch):
+    monkeypatch.setenv("DAYONE_DEMO_EXTRACT", "1")
+    r = client.post("/api/records", files=[("files", PNG)], data={"midwife_id": "wa_test"})
+    assert r.status_code == 202
+    rid = r.json()["id"]
+    assert client.post(f"/api/records/{rid}/pages", files={"file": ("p2.png", b"deux", "image/png")}).json()["index"] == 1
+    assert client.get(f"/api/records/{rid}/final").status_code == 404          # pas encore validé
+    assert client.post(f"/api/records/{rid}/code", json={"code": ""}).status_code == 422
+    assert client.post(f"/api/records/{rid}/code", json={"code": "amn-27"}).json()["patientCode"] == "AMN-27"
+    rec = client.get(f"/api/records/{rid}").json()
+    for page in rec["pages"]:
+        for key, f in page["fields"].items():
+            if f["status"] in ("NEEDS_REVIEW", "ILLEGIBLE"):
+                client.post(f"/api/records/{rid}/pages/{page['index']}/fields/{key}", json={"by": "wa_test", "confirm": True})
+    assert client.post(f"/api/records/{rid}/validate").status_code == 200
+    assert client.post(f"/api/records/{rid}/link", json={"decision": "CREATE"}).status_code == 200
+    final = client.get(f"/api/records/{rid}/final")
+    assert final.status_code == 200 and final.json()["patient_code"] == "AMN-27" and len(final.json()["pages"]) == 2
+    assert client.post(f"/api/records/{rid}/pages", files={"file": PNG}).status_code == 409   # dossier envoyé

@@ -1,3 +1,4 @@
+import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 /**
@@ -16,6 +17,10 @@ export function PatientCode({
   highlight?: number[]
   className?: string
 }) {
+  const t = useT()
+  if (!code)
+    // Record captured on WhatsApp, code not given yet
+    return <span className={cn('text-sm font-medium text-muted-foreground italic', className)}>{t('record.codePending')}</span>
   return (
     <span
       className={cn(

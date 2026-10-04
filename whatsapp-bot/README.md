@@ -16,16 +16,16 @@ Téléphone ─▶ Meta ─▶ POST /webhook (ce bot, port 8001) ─▶ API DayO
 
 | La sage-femme… | Le bot… |
 | :--- | :--- |
-| envoie une ou plusieurs **photos** | « 📄 Page N reçue » + boutons *Terminé* / *Annuler* |
-| appuie sur **Terminé** | demande le **code patiente** écrit sur le registre |
-| donne le code | crée le dossier (`POST /api/records`), attend la lecture, présente la page 1/n |
+| envoie une **photo** | l'envoie **tout de suite** à l'API : enregistrée (chiffrée) dans la base, lue en arrière-plan. 1re photo = création du dossier (`POST /api/records`), suivantes = ajout (`POST /api/records/{id}/pages`). « 📄 Page N reçue et enregistrée » + boutons *Terminé* / *Annuler* |
+| appuie sur **Terminé** | attend la fin de la lecture, puis demande le **code patiente** (si un « N° de fiche » a été lu sur la page, il est proposé : *1* pour le garder) |
+| donne le code | l'enregistre (`POST /api/records/{id}/code`), présente la page 1/n |
 | répond **1** | confirme la page. S'il reste des ⚠️ : les liste et demande une 2ᵉ confirmation explicite |
 | répond **2** | liste numérotée des champs → numéro → nouvelle valeur (format vérifié : date, nombre, oui/non…), enregistrée dans l'API |
 | répond **3** | valeurs lues, groupées par section (⚠️ = à vérifier, ✏️ = corrigé) |
 | répond **4** | attend une nouvelle photo ; seule cette page est relue, les corrections des autres pages restent |
 | répond **5** (page illisible) | retire la page du dossier |
-| a confirmé la dernière page | valide le dossier, propose les patientes plausibles (même code, code proche…) ou la création |
-| choisit la patiente | récapitulatif propre ; le dossier est « envoyé » sur le tableau de bord |
+| a confirmé la dernière page | valide le dossier : l'API **fige et stocke le résultat final** (JSON chiffré). Puis propose les patientes plausibles (même code, code proche…) ou la création |
+| choisit la patiente | le résultat final est complété (patiente, visite) ; le bot envoie le récapitulatif **tiré de ce résultat final** (`GET /api/records/{id}/final`) |
 | répond autre chose | « ❌ … n'est pas une des options proposées » + le menu |
 | tape **annuler**, */aide*, */status* | à tout moment (un dossier déjà créé reste « à vérifier » sur le tableau de bord) |
 

@@ -69,6 +69,8 @@ export const en: Dict = {
   'reason.choix_nouveau': 'Checkbox unknown to the registry',
   'reason.valeur_douteuse': 'Uncertain reading',
   'review.readAs': 'read “{v}”',
+  'record.codePending': 'Code pending',
+  'record.finalJson': 'Final result (JSON)',
   'page.unknown': 'Unrecognised page',
   'page.fiche_surveillance': 'Monitoring sheet',
   'page.identification_antecedents': 'Identification and history',

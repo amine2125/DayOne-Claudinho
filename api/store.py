@@ -17,7 +17,9 @@ Cycle de vie : mêmes états et mêmes transitions que web/src/contract/lifecycl
 
 import json
 import os
+import re
 import secrets
+import sys
 import sqlite3
 import threading
 from contextlib import contextmanager
@@ -33,6 +35,7 @@ from dayone import page as page_image
 from dayone import privacy
 from dayone.dataset import ROOT
 from dayone.normalize import fold
+from dayone.privacy import is_record_label
 from dayone.schema import REFERENCE_PAGE_TYPES, reference_fields
 
 DB_PATH = Path(os.environ.get("DAYONE_DB", ROOT / "dayone.db"))
@@ -72,11 +75,13 @@ CREATE TABLE IF NOT EXISTS records (
     midwife_id TEXT NOT NULL,
     created_at TEXT NOT NULL,
     state TEXT NOT NULL,
-    patient_code TEXT NOT NULL,
+    patient_code TEXT NOT NULL,    -- vide tant que la sage-femme ne l'a pas donné
     patient_id TEXT REFERENCES patients(id),
     visit_id TEXT REFERENCES visits(id),
     failure_reason TEXT,
-    failure_at TEXT
+    failure_at TEXT,
+    validated_at TEXT,
+    final_enc BLOB                 -- résultat final approuvé (JSON chiffré, voir final_json)
 );
 CREATE TABLE IF NOT EXISTS record_events (    -- historique des états (traçabilité)
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +106,7 @@ CREATE TABLE IF NOT EXISTS pages (
     error TEXT                     -- pourquoi la page n'a pas pu être lue
 );
 CREATE INDEX IF NOT EXISTS idx_records_patient ON records(patient_id);
+CREATE INDEX IF NOT EXISTS idx_visits_patient ON visits(patient_id);
 CREATE INDEX IF NOT EXISTS idx_pages_record ON pages(record_id);
 """
 
@@ -148,6 +154,10 @@ def read_encrypted(path: str) -> bytes:
 
 _init_lock = threading.Lock()
 _initialized = False
+ADDED_COLUMNS = {
+    "pages": {"title": "TEXT", "error": "TEXT"},
+    "records": {"validated_at": "TEXT", "final_enc": "BLOB"},
+}
 
 
 @contextmanager
@@ -162,10 +172,11 @@ def db():
                 conn.execute("PRAGMA journal_mode = WAL")
                 conn.executescript(SCHEMA)
                 # Base créée avant ces colonnes : on les ajoute (rien n'est perdu)
-                have = {r["name"] for r in conn.execute("PRAGMA table_info(pages)")}
-                for col in ("title", "error"):
-                    if col not in have:
-                        conn.execute(f"ALTER TABLE pages ADD COLUMN {col} TEXT")
+                for table, cols in ADDED_COLUMNS.items():
+                    have = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+                    for col, kind in cols.items():
+                        if col not in have:
+                            conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {kind}")
                 _initialized = True
         yield conn
         conn.commit()
@@ -255,13 +266,27 @@ def _save_fields(c, page_id: str, fields: dict) -> None:
 
 # ---------------- capture et lecture ----------------
 
+MAX_CODE_LENGTH = 20
+
+
+def clean_code(code: str) -> str:
+    code = code.strip().upper()
+    if len(code) > MAX_CODE_LENGTH:
+        raise ValueError(f"Code patiente trop long ({MAX_CODE_LENGTH} caractères au plus)")
+    return code
+
+
 def create_record(patient_code: str, midwife_id: str, photos: list[bytes]) -> str:
-    """Enregistre la capture (photos chiffrées) et la met en attente de lecture."""
+    """Enregistre la capture (photos chiffrées) et la met en attente de lecture.
+
+    Le code patiente peut être vide : l'agent WhatsApp crée le dossier dès la 1re photo et le
+    demande ensuite (set_code).
+    """
     at = now()
     record_id = uid("rec")
     with db() as c:
         c.execute("INSERT INTO records (id, midwife_id, created_at, state, patient_code) VALUES (?, ?, ?, ?, ?)",
-                  (record_id, midwife_id, at, "CAPTURED", patient_code.strip().upper()))
+                  (record_id, midwife_id, at, "CAPTURED", clean_code(patient_code)))
         c.execute("INSERT INTO record_events (record_id, state, at) VALUES (?, ?, ?)", (record_id, "CAPTURED", at))
         for i, data in enumerate(photos):
             page_id = uid("pg")
@@ -271,8 +296,49 @@ def create_record(patient_code: str, midwife_id: str, photos: list[bytes]) -> st
     return record_id
 
 
+def add_page(record_id: str, photo: bytes) -> int:
+    """Ajoute une page au dossier (photo chiffrée tout de suite) ; elle sera lue en arrière-plan.
+
+    Pendant la lecture d'autres pages le dossier reste PENDING_AI ; s'il était déjà lu, il y revient.
+    """
+    with db() as c:
+        state = c.execute("SELECT state FROM records WHERE id = ?", (record_id,)).fetchone()["state"]
+        if state not in ("PENDING_AI", "CAPTURED") and "CAPTURED" not in TRANSITIONS[state]:
+            raise TransitionError(f"Dossier {state} : on ne peut plus y ajouter de page")
+        idx = c.execute("SELECT COALESCE(MAX(idx), -1) + 1 FROM pages WHERE record_id = ?", (record_id,)).fetchone()[0]
+        page_id = uid("pg")
+        c.execute("INSERT INTO pages (id, record_id, idx, captured_at, original_path) VALUES (?, ?, ?, ?, ?)",
+                  (page_id, record_id, idx, now(), _write_encrypted(photo, page_id + "_original")))
+        if state != "PENDING_AI":
+            if state != "CAPTURED":
+                _move(c, record_id, "CAPTURED", note=f"ADD page {idx}")
+            _move(c, record_id, "PENDING_AI")
+    return idx
+
+
+def set_code(record_id: str, code: str) -> str:
+    """Code patiente écrit sur le registre, donné après la capture. Modifiable tant que la patiente n'est pas choisie."""
+    code = clean_code(code)
+    if not code:
+        raise ValueError("Code patiente vide")
+    with db() as c:
+        rec = c.execute("SELECT patient_id FROM records WHERE id = ?", (record_id,)).fetchone()
+        if rec["patient_id"]:
+            raise TransitionError("La patiente est déjà choisie : le code ne change plus")
+        c.execute("UPDATE records SET patient_code = ? WHERE id = ?", (code, record_id))
+        c.execute("INSERT INTO record_events (record_id, state, at, note) SELECT id, state, ?, 'CODE' FROM records WHERE id = ?",
+                  (now(), record_id))
+    return code
+
+
 _process_lock = threading.Lock()   # une lecture à la fois : PaddleOCR et le modèle sont lourds
 busy: set[str] = set()
+
+
+if sys.platform == "win32":
+    # Paddle 3.x sous Windows : l'accélération oneDNN plante (« ConvertPirAttribute2RuntimeAttribute
+    # not support »). Le processus PaddleOCR (dayone/ocr.py) hérite de cette variable.
+    os.environ.setdefault("PADDLE_PDX_ENABLE_MKLDNN_BYDEFAULT", "False")
 
 
 def extractor():
@@ -296,8 +362,8 @@ def process_record(record_id: str, extract=None, use_model: bool = True) -> None
         busy.add(record_id)
         try:
             with db() as c:
-                pages = c.execute("SELECT * FROM pages WHERE record_id = ? AND fields_enc IS NULL ORDER BY idx",
-                                  (record_id,)).fetchall()
+                pages = c.execute("""SELECT * FROM pages WHERE record_id = ? AND fields_enc IS NULL AND error IS NULL
+                                     ORDER BY idx""", (record_id,)).fetchall()
             results, errors = [], []
             for p in pages:
                 data = read_encrypted(p["original_path"])
@@ -310,13 +376,6 @@ def process_record(record_id: str, extract=None, use_model: bool = True) -> None
             with db() as c:
                 for p, message in errors:
                     c.execute("UPDATE pages SET error = ? WHERE id = ?", (message, p["id"]))
-                read = c.execute("SELECT COUNT(*) FROM pages WHERE record_id = ? AND fields_enc IS NOT NULL",
-                                 (record_id,)).fetchone()[0]
-                if not results and not read:
-                    c.execute("UPDATE records SET failure_reason = ?, failure_at = ? WHERE id = ?",
-                              ("LAYOUT", at, record_id))
-                    _move(c, record_id, "PROCESSING_FAILED", note=(errors[0][1] if errors else None))
-                    return
                 for p, pred, view in results:
                     view_path, size = (None, (None, None))
                     if view is not None:
@@ -327,6 +386,18 @@ def process_record(record_id: str, extract=None, use_model: bool = True) -> None
                                  error = NULL WHERE id = ?""",
                               (page_type_of(pred), view_path, size[0], size[1], _encrypt_text(pred.get("title")), p["id"]))
                     _save_fields(c, p["id"], fields_from_prediction(pred, p["idx"], at))
+                state = c.execute("SELECT state FROM records WHERE id = ?", (record_id,)).fetchone()["state"]
+                waiting = c.execute("""SELECT COUNT(*) FROM pages WHERE record_id = ? AND fields_enc IS NULL
+                                       AND error IS NULL""", (record_id,)).fetchone()[0]
+                if state != "PENDING_AI" or waiting:
+                    return          # une page ajoutée entre-temps : sa propre lecture finira le travail
+                read = c.execute("SELECT COUNT(*) FROM pages WHERE record_id = ? AND fields_enc IS NOT NULL",
+                                 (record_id,)).fetchone()[0]
+                if not read:
+                    c.execute("UPDATE records SET failure_reason = ?, failure_at = ? WHERE id = ?",
+                              ("LAYOUT", at, record_id))
+                    _move(c, record_id, "PROCESSING_FAILED", note=(errors[0][1] if errors else None))
+                    return
                 c.execute("UPDATE records SET failure_reason = NULL, failure_at = NULL WHERE id = ?", (record_id,))
                 _move(c, record_id, "AI_PROCESSED")
                 _move(c, record_id, "NEEDS_REVIEW")
@@ -353,8 +424,10 @@ def pending_records() -> list[str]:
 
 
 def retry(record_id: str) -> None:
+    """Relire les pages qui n'ont pas pu l'être (OCR indisponible au moment de la capture…)."""
     with db() as c:
         _move(c, record_id, "PENDING_AI", note="RETRY")
+        c.execute("UPDATE pages SET error = NULL WHERE record_id = ? AND fields_enc IS NULL", (record_id,))
 
 
 def replace_page(record_id: str, page_index: int, photo: bytes) -> None:
@@ -426,6 +499,47 @@ def validate(record_id: str) -> None:
             if any(f["status"] in TO_REVIEW for f in _load_fields(row).values()):
                 raise TransitionError("Des champs restent à vérifier")
         _move(c, record_id, "VALIDATED")
+        at = now()
+        c.execute("UPDATE records SET validated_at = ? WHERE id = ?", (at, record_id))
+        _store_final(c, record_id)
+
+
+# ---------------- résultat final ----------------
+
+FINAL_FORMAT = "dayone.record.v1"
+FINAL_FIELD_KEYS = ("key", "label", "kind", "section", "value", "status", "confidence", "origin", "aiValue")
+
+
+def _build_final(c, record_id: str) -> dict:
+    """Ce que la sage-femme a approuvé, indépendant de l'interface : un JSON stable à conserver ou exporter."""
+    r = c.execute("SELECT * FROM records WHERE id = ?", (record_id,)).fetchone()
+    pages = []
+    for p in c.execute("SELECT * FROM pages WHERE record_id = ? ORDER BY idx", (record_id,)).fetchall():
+        fields = [{k: f[k] for k in FINAL_FIELD_KEYS if k in f} for f in _load_fields(p).values()]
+        pages.append({"index": p["idx"], "page_type": p["page_type"] or UNKNOWN_PAGE,
+                      "title": fernet().decrypt(p["title"].encode()).decode() if p["title"] else None,
+                      "captured_at": p["captured_at"], "fields": fields})
+    linked_at = c.execute("""SELECT at FROM record_events WHERE record_id = ? AND state = 'PATIENT_LINKED'
+                             ORDER BY id DESC LIMIT 1""", (record_id,)).fetchone()
+    return {
+        "format": FINAL_FORMAT, "record_id": r["id"], "patient_code": r["patient_code"],
+        "patient_id": r["patient_id"], "visit_id": r["visit_id"], "midwife_id": r["midwife_id"],
+        "captured_at": r["created_at"], "validated_at": r["validated_at"],
+        "linked_at": linked_at["at"] if linked_at else None, "state": r["state"], "pages": pages,
+    }
+
+
+def _store_final(c, record_id: str) -> None:
+    final = _build_final(c, record_id)
+    blob = fernet().encrypt(json.dumps(final, ensure_ascii=False).encode())
+    c.execute("UPDATE records SET final_enc = ? WHERE id = ?", (blob, record_id))
+
+
+def final_json(record_id: str) -> dict | None:
+    """Résultat final approuvé (None tant que le dossier n'est pas validé)."""
+    with db() as c:
+        row = c.execute("SELECT final_enc FROM records WHERE id = ?", (record_id,)).fetchone()
+    return json.loads(fernet().decrypt(row["final_enc"])) if row and row["final_enc"] else None
 
 
 # ---------------- liaison patiente ----------------
@@ -468,6 +582,8 @@ def candidates(record_id: str) -> list[dict]:
         rec = c.execute("SELECT * FROM records WHERE id = ?", (record_id,)).fetchone()
         mine = _record_fields(c, record_id)
         out = []
+        if not rec["patient_code"]:
+            return out
         for p in c.execute("SELECT * FROM patients").fetchall():
             d = code_distance(rec["patient_code"], p["code"])
             if d > 1:
@@ -491,9 +607,12 @@ def link(record_id: str, decision: str, patient_id: str | None = None) -> str | 
     """EXISTING (patient_id), CREATE ou UNSURE. Jamais de création silencieuse : c'est un choix explicite."""
     with db() as c:
         rec = c.execute("SELECT * FROM records WHERE id = ?", (record_id,)).fetchone()
+        if not rec["patient_code"]:
+            raise TransitionError("Donner d'abord le code patiente écrit sur le registre")
         if decision == "UNSURE":
             if rec["state"] == "VALIDATED":
                 _move(c, record_id, "SUSPECTED_DUPLICATE")
+                _store_final(c, record_id)
             return None
         if decision == "CREATE":
             patient_id = uid("pt")
@@ -521,6 +640,8 @@ def link(record_id: str, decision: str, patient_id: str | None = None) -> str | 
         _move(c, record_id, "PATIENT_LINKED", note=decision)
         _move(c, record_id, "SAVED")
         _move(c, record_id, "SYNCED")       # serveur local = dossier central : rien d'autre à envoyer
+        if rec["validated_at"]:
+            _store_final(c, record_id)      # le résultat final porte la patiente et la visite
         return patient_id
 
 
@@ -572,7 +693,26 @@ def _record_dict(c, r, image_url) -> dict:
         rec["visitId"] = r["visit_id"]
     if r["failure_reason"]:
         rec["failure"] = {"reason": r["failure_reason"], "at": r["failure_at"]}
+    if r["validated_at"]:
+        rec["validatedAt"] = r["validated_at"]
+    if r["final_enc"]:
+        rec["hasFinal"] = True
+    if not r["patient_code"]:
+        suggestion = suggested_code(pages)
+        if suggestion:
+            rec["codeSuggestion"] = suggestion
     return rec
+
+
+def suggested_code(pages: list[dict]) -> str | None:
+    """N° de fiche / code lu sur une page (la lecture le garde : il relie les visites)."""
+    for page in pages:
+        for f in page["fields"].values():
+            if f.get("value") and f.get("status") != "ILLEGIBLE" and is_record_label(f.get("label", "")):
+                code = re.sub(r"[^A-Za-z0-9\-/]", "", str(f["value"])).upper()
+                if 0 < len(code) <= MAX_CODE_LENGTH:
+                    return code
+    return None
 
 
 def record(record_id: str, image_url) -> dict | None:
