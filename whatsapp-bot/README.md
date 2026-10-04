@@ -64,6 +64,7 @@ L'URL du tunnel change à chaque redémarrage : la remettre dans Vonage. Le sand
 | `VONAGE_SIGNATURE_SECRET` | vérifier le JWT signé par Vonage sur chaque webhook (obligatoire : sans lui, tout est refusé) |
 | `VONAGE_WHATSAPP_NUMBER` | numéro WhatsApp d'envoi (celui du sandbox, ou le numéro Business), sans `+` |
 | `VONAGE_SANDBOX` | `true` : API du sandbox ; `false` : production (`VONAGE_API_HOST`, `https://api.nexmo.com` par défaut) |
+| `PUBLIC_BASE_URL` | adresse publique du bot (celle des webhooks) : Vonage y récupère la fiche PDF (`/files/{jeton}`, quelques minutes). Vide : un texte renvoie au tableau de bord |
 | `MIDWIFE_ID_SECRET` | clé du HMAC qui identifie la sage-femme ; la changer change ses identifiants |
 | `DAYONE_API_URL` | API DayOne (`http://localhost:8000`) |
 | `READ_TIMEOUT_PER_PAGE` | attente maximale de la lecture, par page (300 s) |
