@@ -23,6 +23,9 @@ Chaque champ sort sous la forme `{"value", "status", "confidence"}`. Les statuts
 
 ```bash
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# PaddleOCR n'existe pas pour Python 3.14 : si .venv est en 3.14, l'OCR tourne dans un Python 3.11 à part
+# (dayone/ocr.py le trouve tout seul dans .venv-ocr)
+python3.11 -m venv .venv-ocr && .venv-ocr/bin/pip install paddlepaddle==3.3.1 paddleocr==3.7.0
 # Ollama : https://ollama.com (ou brew install ollama), puis
 ollama serve &
 ollama pull qwen3-vl:2b-instruct
@@ -36,7 +39,13 @@ L'interface est le tableau de bord web dans `web/` (voir [web/README.md](web/REA
 cd web && npm install && npm run dev
 ```
 
-La lecture des pages se lance en ligne de commande :
+L'API locale (`api/`) : `.venv/bin/uvicorn api.main:app --port 8000`, puis http://localhost:8000/docs.
+Elle lit les photos et garde les dossiers dans `dayone.db` (SQLite, créé au premier lancement, rien à installer).
+Les valeurs lues et les photos (`captures/`) sont chiffrées avec `.device_secure_key` ; la photo affichée a les
+zones personnelles noircies, l'original n'est jamais servi. État de la base : `/health`, ou
+`sqlite3 dayone.db "SELECT code, created_at FROM patients;"`.
+
+La lecture des pages se lance aussi en ligne de commande :
 
 | Je veux… | Commande |
 |---|---|

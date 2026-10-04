@@ -3,8 +3,13 @@
 Le processus enfant est terminé avant tout appel au modèle : sa mémoire est rendue
 (PaddleOCR et Ollama ne tournent jamais en même temps). Le texte lu ne passe que par
 un tube en mémoire : il n'est jamais écrit sur disque ni dans les logs.
+
+PaddlePaddle n'existe pas pour toutes les versions de Python (pas de 3.14) : le processus
+enfant peut donc tourner avec un autre Python, `DAYONE_OCR_PYTHON`, ou `.venv-ocr` s'il existe.
 """
 
+import importlib.util
+import os
 import pickle
 import subprocess
 import sys
@@ -14,12 +19,33 @@ import numpy as np
 from dayone.dataset import ROOT
 
 
+def ocr_python() -> str:
+    """Python qui lance PaddleOCR : DAYONE_OCR_PYTHON, sinon .venv-ocr, sinon celui-ci."""
+    env = os.environ.get("DAYONE_OCR_PYTHON")
+    if env:
+        return env
+    local = ROOT / ".venv-ocr" / "bin" / "python"
+    return str(local) if local.exists() else sys.executable
+
+
+def available() -> tuple[bool, str]:
+    """PaddleOCR est-il installé dans le Python qui le lancera ?"""
+    py = ocr_python()
+    if py == sys.executable:
+        ok = importlib.util.find_spec("paddleocr") is not None
+    else:
+        ok = subprocess.run([py, "-c", "import importlib.util, sys; "
+                                       "sys.exit(importlib.util.find_spec('paddleocr') is None)"],
+                            capture_output=True).returncode == 0
+    return (True, "ok") if ok else (False, f"PaddleOCR absent de {py}")
+
+
 def read_zones(crops: dict[str, np.ndarray]) -> dict[str, tuple[str, float]]:
     """{id: image} -> {id: (texte, score 0-1)}. Lance PaddleOCR une seule fois pour toutes les zones."""
     if not crops:
         return {}
     proc = subprocess.run(
-        [sys.executable, "-m", "dayone.ocr"],
+        [ocr_python(), "-m", "dayone.ocr"],
         input=pickle.dumps(crops), capture_output=True, cwd=ROOT,
     )
     if proc.returncode != 0:

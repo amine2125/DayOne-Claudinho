@@ -4,7 +4,7 @@ Tableau de bord de DayOne, **en lecture seule** : qui voir en premier, et le dos
 La sage-femme envoie les photos, vérifie les cases douteuses et choisit la patiente **sur WhatsApp** ; cette interface ne modifie rien, elle montre ce qui se passe.
 Elle lit directement `../schema/*.json` (gabarits des pages du registre).
 
-**Elle démarre vide** : aucune donnée de démo. Les patientes et les dossiers viendront du backend, une fois l'agent WhatsApp branché.
+**Elle lit l'API locale** (`api/`, http://localhost:8000) toutes les 4 secondes : aucune donnée de démo. Les dossiers arrivent par l'API (bientôt par l'agent WhatsApp). Autre adresse : `VITE_API_URL=http://… npm run dev`.
 
 ```bash
 cd web
@@ -15,9 +15,9 @@ npm run build      # build statique dans dist/
 
 Seuls tes réglages (rôle, langue, identifiant sage-femme) sont gardés dans le navigateur.
 
-## Brancher le backend
+## Données
 
-Les écrans ne lisent que l'interface `DayOneApi` ([src/services/api.ts](src/services/api.ts)). Aujourd'hui elle est servie par un store local vide ([src/services/localApi.ts](src/services/localApi.ts)). Pour afficher les vraies données, il suffit d'écrire une classe qui implémente `DayOneApi` en appelant le backend, et de la brancher dans [src/services/index.ts](src/services/index.ts).
+Les écrans ne lisent que l'interface `DayOneApi` ([src/services/api.ts](src/services/api.ts)), servie par [src/services/httpApi.ts](src/services/httpApi.ts) : il lit `GET /api/snapshot` et les images masquées `GET /api/pages/{id}/image`. Le tableau de bord n'écrit jamais : capture, vérification et choix de la patiente passent par les routes `/api/records` (utilisées par l'agent WhatsApp).
 
 ## Calendrier de suivi
 
@@ -37,7 +37,7 @@ Les écrans ne lisent que l'interface `DayOneApi` ([src/services/api.ts](src/ser
 | Dossier | Rôle |
 |---|---|
 | `src/contract/` | **Le contrat de données.** `followup.ts` (calendrier de suivi), `enums.ts` (6 statuts de champ, cycle de vie, rôles), `types.ts` (Field, Page, RegistryRecord, Visit, Patient), `lifecycle.ts` (transitions permises et les 5 étapes montrées à la sage-femme), `registry.ts` (sections et champs lus depuis `schema/*.json`) |
-| `src/services/` | `api.ts` est l'interface `DayOneApi` (le backend). `localApi.ts` en est la version locale, vide, en attendant le backend. `followup.ts` calcule le prochain rendez-vous. `linking.ts` propose les correspondances patiente |
+| `src/services/` | `api.ts` est l'interface `DayOneApi`. `httpApi.ts` la sert depuis l'API locale. `followup.ts` calcule le prochain rendez-vous. `linking.ts` : recherche par code |
 | `src/components/` | Briques réutilisables : `StatusBadge`, `ConfidenceMeter`, `FieldRow`, `SectionCard`, `LifecycleStepper`, `PageImage` / `FieldCrop`, `VisitTimeline`, `ConnectivityToggle` / `ConnectivityBanner`, `PatientCode` |
 | `src/screens/` | Un fichier par écran : `HomeScreen` (Aujourd'hui), `PatientsScreen`, `PatientScreen`, `PageScreen` (un dossier, lecture seule), `DashboardScreen` (superviseur / épidémiologiste), `SettingsScreen` |
 | `src/i18n/` | Textes FR / EN (`fr.ts`, `en.ts`, mêmes clés vérifiées par TypeScript) et libellés EN des champs |
@@ -72,5 +72,5 @@ Un `Field` correspond exactement à ce qu'écrit `dayone/extract.py` (`value`, `
 
 ## Limites
 
-- Pas encore de backend branché : l'interface est vide tant que l'agent WhatsApp n'envoie pas de dossiers.
+- L'interface est vide tant qu'aucun dossier n'est envoyé à l'API (agent WhatsApp à brancher).
 - Tableau de bord : les emplacements sont prêts, mais il n'y a encore ni graphique ni calcul.

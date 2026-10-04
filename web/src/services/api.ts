@@ -1,10 +1,9 @@
 /**
- * The only door between screens and data. Today it is backed by an empty local
- * store (localApi.ts); once WhatsApp is connected, an HTTP client implementing
- * the same interface talks to the Python backend. Screens never change.
+ * The only door between screens and data, backed by the local Python API
+ * (httpApi.ts). Screens never call the network themselves.
  */
-import type { FieldStatus, Lang, LinkDecision, PageType, Role } from '@/contract/enums'
-import type { FieldValue, LinkCandidate, Patient, RegistryRecord, Visit } from '@/contract/types'
+import type { Lang, Role } from '@/contract/enums'
+import type { Patient, RegistryRecord, Visit } from '@/contract/types'
 
 export interface ActivityEvent {
   id: string
@@ -22,42 +21,21 @@ export interface AppState {
   midwifeId: string
   role: Role
   lang: Lang
-  /** Records the (mock) pipeline is working on right now. */
+  /** Records the backend is reading right now. */
   busy: string[]
   activity: ActivityEvent[]
 }
 
-export interface NewPage {
-  pageType: PageType
-  imageUrl?: string
-  imageSize: [number, number]
-}
-
-export type LinkChoice = { decision: Extract<LinkDecision, 'EXISTING'>; patientId: string } | { decision: Exclude<LinkDecision, 'EXISTING'> }
-
+/** The dashboard only reads. Records are written by the backend (WhatsApp agent). */
 export interface DayOneApi {
   getState(): AppState
   subscribe(listener: () => void): () => void
+  /** Ask the backend for fresh data now (otherwise it polls). */
+  refresh(): Promise<void>
 
-  setOnline(online: boolean): void
   setRole(role: Role): void
   setLang(lang: Lang): void
   setMidwifeId(id: string): void
-  resetDemo(): void
-
-  /** Store the photos on the device (encrypted in the real app) and queue them for the AI. */
-  capture(patientCode: string, pages: NewPage[]): RegistryRecord
-  retry(recordId: string): void
-  retakePhoto(recordId: string, pageIndex: number, page: NewPage): void
-  /** AI unavailable or page unreadable: open every field for manual entry. */
-  startManualEntry(recordId: string): void
-
-  confirmField(recordId: string, pageIndex: number, key: string): void
-  setField(recordId: string, pageIndex: number, key: string, value: FieldValue, status: FieldStatus): void
-  /** Mark every still-open field of a section as blank on paper. */
-  markSectionBlank(recordId: string, pageIndex: number, section: string): void
-  validate(recordId: string): void
-
-  candidates(recordId: string): LinkCandidate[]
-  link(recordId: string, choice: LinkChoice): void
+  /** Forget this browser's settings. */
+  clearLocalSettings(): void
 }

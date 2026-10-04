@@ -15,13 +15,10 @@ export const fr = {
   'net.online': 'En ligne',
   'net.offline': 'Hors ligne',
   'net.waiting': '{n} en attente',
-  'net.toggle.goOffline': 'Couper la connexion (démo)',
-  'net.toggle.goOnline': 'Rétablir la connexion (démo)',
-  'net.banner.offline': 'Pas de connexion. Rien n’est perdu : tout est gardé sur l’appareil.',
-  'net.banner.offlineCount': '{n} dossier(s) partiront tout seuls au retour du réseau.',
-  'net.banner.syncing': 'Connexion revenue. Envoi et lecture en cours…',
-  'net.toast.online': 'Connexion revenue',
-  'net.toast.offline': 'Connexion coupée — les photos restent sur l’appareil',
+  'net.banner.offline': 'Serveur DayOne injoignable.',
+  'net.refresh': 'Actualiser maintenant',
+  'net.banner.offlineHint': 'Les données affichées peuvent être anciennes. Nouvel essai automatique.',
+  'net.banner.syncing': 'Lecture d’une photo en cours…',
 
   // field statuses — plain words, not codes
   'status.KNOWN': 'Lu',
@@ -68,6 +65,7 @@ export const fr = {
   'failure.LAYOUT': 'La page n’a pas été reconnue (photo ou mise en page différente).',
 
   // page types
+  'page.unknown': 'Page non reconnue',
   'page.fiche_surveillance': 'Fiche de surveillance',
   'page.identification_antecedents': 'Identification et antécédents',
   'page.grossesse_actuelle': 'Grossesse actuelle',

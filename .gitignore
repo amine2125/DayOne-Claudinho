@@ -1,5 +1,6 @@
 # Environments
 .venv/
+.venv-ocr/
 venv/
 ENV/
 env/
@@ -30,3 +31,4 @@ web/dist/
 .device_secure_key
 *.db
 offline_captures/
+captures/

@@ -4,7 +4,7 @@ import { api, useAppState, useWaitingCount } from '@/services'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-/** Network state + how many records are waiting. Clicking it simulates cutting/restoring the network. */
+/** Backend reachable or not + how many records are waiting. Clicking it refreshes now. */
 export function ConnectivityToggle({ className }: { className?: string }) {
   const t = useT()
   const online = useAppState((s) => s.online)
@@ -16,7 +16,7 @@ export function ConnectivityToggle({ className }: { className?: string }) {
         render={
           <button
             type="button"
-            onClick={() => api.setOnline(!online)}
+            onClick={() => void api.refresh()}
             className={cn(
               'inline-flex h-10 items-center gap-2 rounded-full border-2 px-3.5 text-sm font-semibold whitespace-nowrap transition-colors',
               online ? 'border-known/30 bg-known-soft text-known' : 'border-review/40 bg-review-soft text-review',
@@ -34,17 +34,16 @@ export function ConnectivityToggle({ className }: { className?: string }) {
           </span>
         )}
       </TooltipTrigger>
-      <TooltipContent>{online ? t('net.toggle.goOffline') : t('net.toggle.goOnline')}</TooltipContent>
+      <TooltipContent>{t('net.refresh')}</TooltipContent>
     </Tooltip>
   )
 }
 
-/** Reassurance band: offline is a normal state, not an error. */
+/** Band shown while the backend is unreachable, or while it reads a photo. */
 export function ConnectivityBanner() {
   const t = useT()
   const online = useAppState((s) => s.online)
   const busy = useAppState((s) => s.busy.length > 0)
-  const waiting = useWaitingCount()
   if (online && !busy) return null
   return (
     <div
@@ -57,7 +56,7 @@ export function ConnectivityBanner() {
           t('net.banner.syncing')
         ) : (
           <>
-            <strong>{t('net.banner.offline')}</strong> {waiting > 0 && t('net.banner.offlineCount', { n: waiting })}
+            <strong>{t('net.banner.offline')}</strong> {t('net.banner.offlineHint')}
           </>
         )}
       </span>

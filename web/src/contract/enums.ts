@@ -64,7 +64,8 @@ export const PAGE_TYPES = [
   'postpartum_tardif_mere',
   'postpartum_tardif_nouveau_ne',
 ] as const
-export type PageType = (typeof PAGE_TYPES)[number]
+/** 'unknown' : photo reçue mais page non reconnue par la lecture. */
+export type PageType = (typeof PAGE_TYPES)[number] | 'unknown'
 
 export const ROLES = ['MIDWIFE', 'SUPERVISOR', 'EPIDEMIOLOGIST'] as const
 export type Role = (typeof ROLES)[number]

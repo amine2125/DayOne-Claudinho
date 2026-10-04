@@ -68,7 +68,7 @@ export function SettingsScreen() {
           <Button
             variant="outline"
             onClick={() => {
-              api.resetDemo()
+              api.clearLocalSettings()
               toast.success(t('settings.resetDone'))
             }}
           >
