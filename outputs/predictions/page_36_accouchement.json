@@ -1,0 +1,220 @@
+{
+ "page_type": "accouchement",
+ "source": "page 36",
+ "mode": "gabarit",
+ "model": "qwen3-vl:2b-instruct",
+ "threshold": 0.7,
+ "alignment_inliers": 894,
+ "timings": {
+  "alignement_s": 0.1,
+  "ocr_s": 2.6,
+  "modele_s": 8.7,
+  "total_s": 11.4
+ },
+ "fields": {
+  "lieu_milieu_surveille": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "lieu_maison_accouchement": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "lieu_maternite": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "lieu_clinique_privee": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "lieu_autre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "lieu_domicile": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "domicile_assiste_qualifie": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "domicile_autre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "date_accouchement": {
+   "value": "2026-05-08",
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "ocr+modele"
+  },
+  "mode_voie_basse_non_instrumentale": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "mode_voie_basse_instrumentale": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "mode_forceps": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "mode_ventouse": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "mode_episiotomie": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "mode_cesarienne_programmee": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "mode_cesarienne_urgence": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "cesarienne_indication": {
+   "value": "Utérus cicatriciel",
+   "status": "KNOWN",
+   "confidence": 0.946,
+   "source": "ocr"
+  },
+  "complications_presence": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "complications_accouchement": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "complications_suites_couches": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_pre_eclampsie": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_eclampsie": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_hemorragie": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_infection": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_autres": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "compl_autres_precision": {
+   "value": null,
+   "status": "NOT_APPLICABLE",
+   "confidence": 0.95,
+   "source": "regle"
+  },
+  "nn_vivant": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "nn_mort_ne": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "nn_deces_24h": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "nn_sexe": {
+   "value": "F",
+   "status": "KNOWN",
+   "confidence": 0.85,
+   "source": "ocr+modele"
+  },
+  "nn_poids": {
+   "value": 3765,
+   "status": "KNOWN",
+   "confidence": 0.812,
+   "source": "ocr"
+  },
+  "nn_perimetre_cranien": {
+   "value": 35,
+   "status": "KNOWN",
+   "confidence": 0.964,
+   "source": "ocr"
+  },
+  "nn_anomalie": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.965,
+   "source": "ocr"
+  },
+  "nn_age_gestationnel": {
+   "value": 41,
+   "status": "KNOWN",
+   "confidence": 0.991,
+   "source": "ocr"
+  }
+ }
+}

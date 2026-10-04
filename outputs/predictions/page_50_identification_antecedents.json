@@ -1,0 +1,490 @@
+{
+ "page_type": "identification_antecedents",
+ "source": "page 50",
+ "mode": "gabarit",
+ "model": "qwen3-vl:2b-instruct",
+ "threshold": 0.7,
+ "alignment_inliers": 571,
+ "timings": {
+  "alignement_s": 0.1,
+  "ocr_s": 4.6,
+  "modele_s": 8.8,
+  "total_s": 13.6
+ },
+ "fields": {
+  "age": {
+   "value": 26,
+   "status": "KNOWN",
+   "confidence": 0.921,
+   "source": "ocr"
+  },
+  "niveau_instruction": {
+   "value": "Collège",
+   "status": "KNOWN",
+   "confidence": 0.95,
+   "source": "ocr"
+  },
+  "profession_femme": {
+   "value": "Commerçante",
+   "status": "KNOWN",
+   "confidence": 0.987,
+   "source": "ocr"
+  },
+  "profession_mari": {
+   "value": "Mécanicien",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "consanguinite": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "grossesse_desiree": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "hered_hta_femme": {
+   "value": "Mère",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "hered_hta_mari": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.995,
+   "source": "ocr"
+  },
+  "hered_diabete_femme": {
+   "value": "Mère",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "hered_diabete_mari": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "hered_maladies_hereditaires_femme": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "hered_maladies_hereditaires_mari": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "hered_malformations_femme": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "hered_malformations_mari": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "hered_allergies_femme": {
+   "value": "Mère",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "hered_allergies_mari": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "atcd_medicaux": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.998,
+   "source": "ocr"
+  },
+  "atcd_chirurgicaux": {
+   "value": "Appendicectomie",
+   "status": "KNOWN",
+   "confidence": 0.991,
+   "source": "ocr"
+  },
+  "atcd_gynecologiques": {
+   "value": "Cyples réguliers",
+   "status": "KNOWN",
+   "confidence": 0.94,
+   "source": "ocr"
+  },
+  "obst_autres_precision": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_avortement_nombre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_avortement_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_avortement_lieu": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_avortement_sa": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_premature_nombre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_premature_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_premature_lieu": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_premature_sa": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_mfiu_nombre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_mfiu_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_mfiu_lieu": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_mfiu_sa": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_autres_nombre": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_autres_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_autres_lieu": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "obst_autres_sa": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc1_date": {
+   "value": "2018-10-19",
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "ocr+modele"
+  },
+  "acc1_modalite": {
+   "value": "Voie basse",
+   "status": "KNOWN",
+   "confidence": 0.998,
+   "source": "ocr"
+  },
+  "acc1_indication_cesarienne": {
+   "value": null,
+   "status": "NOT_APPLICABLE",
+   "confidence": 0.95,
+   "source": "regle"
+  },
+  "acc1_complication": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "acc1_poids": {
+   "value": 3296,
+   "status": "KNOWN",
+   "confidence": 0.932,
+   "source": "ocr"
+  },
+  "acc1_complication_nn": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.998,
+   "source": "ocr"
+  },
+  "acc2_date": {
+   "value": "2021-08-12",
+   "status": "KNOWN",
+   "confidence": 0.931,
+   "source": "ocr"
+  },
+  "acc2_modalite": {
+   "value": "basse Voje",
+   "status": "KNOWN",
+   "confidence": 0.954,
+   "source": "ocr"
+  },
+  "acc2_indication_cesarienne": {
+   "value": null,
+   "status": "NOT_APPLICABLE",
+   "confidence": 0.95,
+   "source": "regle"
+  },
+  "acc2_complication": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.994,
+   "source": "ocr"
+  },
+  "acc2_poids": {
+   "value": 3662,
+   "status": "KNOWN",
+   "confidence": 0.871,
+   "source": "ocr"
+  },
+  "acc2_complication_nn": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "acc3_date": {
+   "value": "2023-06-25",
+   "status": "KNOWN",
+   "confidence": 0.969,
+   "source": "ocr"
+  },
+  "acc3_modalite": {
+   "value": "Voie basse",
+   "status": "KNOWN",
+   "confidence": 0.979,
+   "source": "ocr"
+  },
+  "acc3_indication_cesarienne": {
+   "value": null,
+   "status": "NOT_APPLICABLE",
+   "confidence": 0.95,
+   "source": "regle"
+  },
+  "acc3_complication": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "acc3_poids": {
+   "value": 3651,
+   "status": "KNOWN",
+   "confidence": 0.94,
+   "source": "ocr"
+  },
+  "acc3_complication_nn": {
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.999,
+   "source": "ocr"
+  },
+  "acc4_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc4_modalite": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc4_indication_cesarienne": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc4_complication": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc4_poids": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc4_complication_nn": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_date": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_modalite": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_indication_cesarienne": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_complication": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_poids": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "acc5_complication_nn": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "encre"
+  },
+  "gestation": {
+   "value": 5,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "parite": {
+   "value": 3,
+   "status": "KNOWN",
+   "confidence": 0.74,
+   "source": "ocr"
+  },
+  "enfants_vivants": {
+   "value": 3,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "ocr"
+  },
+  "vat_1": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "vat_2": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "vat_3": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "vat_4": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "vat_5": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "rubeole": {
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 1.0,
+   "source": "case"
+  },
+  "rubeole_date": {
+   "value": "2022-05-12",
+   "status": "KNOWN",
+   "confidence": 0.997,
+   "source": "ocr"
+  },
+  "hepatite_b": {
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.95,
+   "source": "case"
+  },
+  "hepatite_b_date": {
+   "value": null,
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.211,
+   "source": "ocr+modele"
+  },
+  "frottis": {
+   "value": "Normal",
+   "status": "KNOWN",
+   "confidence": 0.931,
+   "source": "ocr"
+  }
+ }
+}

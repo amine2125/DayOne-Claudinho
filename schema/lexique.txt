@@ -1,0 +1,100 @@
+# Mots et expressions du registre, avec leurs accents. Une entrée par ligne.
+# Sert à remettre une lettre accentuée absente de la page (« Commer ante » -> « Commerçante »).
+# Seules les lettres accentuées peuvent manquer : jamais d'autre correction.
+
+# Niveau d'instruction
+Aucun
+Analphabète
+Primaire
+Collège
+Lycée
+Secondaire
+Supérieur
+Universitaire
+
+# Professions
+Agricultrice
+Agriculteur
+Artisan
+Chauffeur
+Commerçant
+Commerçante
+Couturière
+Employée
+Employé
+Enseignante
+Enseignant
+Étudiante
+Étudiant
+Femme au foyer
+Fonctionnaire
+Infirmière
+Infirmier
+Ménagère
+Mécanicien
+Militaire
+Ouvrier
+Ouvrière
+Policier
+Sans emploi
+Sans profession
+Secrétaire
+Vendeuse
+
+# Famille
+Père
+Mère
+Frère
+Sœur
+Grand-père
+Grand-mère
+Oncle
+Tante
+Cousin
+Cousine
+
+# Lieux
+Maternité
+Hôpital
+Clinique
+Clinique privée
+Domicile
+Centre de santé
+Maison d'accouchement
+Dispensaire
+
+# Antécédents, accouchement
+Cycles réguliers
+Cycles irréguliers
+Dysménorrhée
+Aménorrhée
+Appendicectomie
+Cholécystectomie
+Césarienne
+Voie basse
+Hémorragie
+Pré-éclampsie
+Éclampsie
+Infection
+Souffrance fœtale
+Dystocie
+Présentation du siège
+Macrosomie
+Hypertension
+Diabète
+Asthme
+Épilepsie
+Anémie
+Cardiopathie
+Allergie à la pénicilline
+Pénicilline
+Ictère
+Prématurité
+Détresse respiratoire
+Fille
+Garçon
+
+# Frottis
+Normal
+Anormal
+Non fait

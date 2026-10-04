@@ -40,4 +40,13 @@ Test de fumée sur la page n° 2 (patiente 1), image en pleine résolution (3 82
 | Ollama `qwen3-vl:4b` | 100 s | 3,7 Go selon Ollama, ~5 Go dans le Moniteur d'activité | oui |
 | Ollama `qwen3-vl:2b` | 38 s | 1,8 Go selon Ollama | oui |
 
-Le 4b fait trop chauffer la machine (8 Go) → **2b par défaut**. Prochaine piste : réduire l'image envoyée.
+Le 4b fait trop chauffer la machine (8 Go) → **2b par défaut**.
+
+## Constats pendant l'implémentation
+
+- `qwen3-vl:2b` « réfléchit » même avec `think=False` : tout le budget de tokens y passe et la réponse est vide. On utilise donc **`qwen3-vl:2b-instruct`** (même taille, ~1,7 Go). Coût mesuré sur un M4 : ~4 s par zone, ~1 150 tokens quelle que soit la taille de la zone.
+- Toutes les pages dev s'alignent sur la page de la patiente 1 (décalage ≤ 17 px, 355 à 1 000 points d'accord). Les photos `1-*.jpg` ne s'alignent pas (< 10 points) : c'est un autre registre, avec une autre mise en page.
+- Encre : bleue pour la plupart des patientes, **noire et fine** pour les patientes 2 et 7. Le masque d'encre combine le bleu et « sombre mais absent du gabarit imprimé ».
+- Cases : part d'encre de 0 si vide, d'au moins 0,08 si cochée, sur les 16 pages dev. Seuils retenus : 0,02 et 0,06.
+- PaddleOCR lit mieux la zone **brute** agrandie ×2 qu'une zone nettoyée (le nettoyage casse les traits fins).
+- La police manuscrite synthétique n'a pas certains glyphes accentués : « Commer ante », « Maternit » sont réellement écrits ainsi sur la page.
