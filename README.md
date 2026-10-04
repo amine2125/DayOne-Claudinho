@@ -759,3 +759,11 @@ Le contenu de `data/` (registre fourni), `outputs/predictions/`, `web/node_modul
 - Le nom de lieu proposé par le modèle peut être faux : il reste toujours à vérifier.
 - Le tunnel cloudflared rapide change d'adresse à chaque redémarrage ; le bac à sable Vonage est limité (1 message par seconde, quota mensuel).
 - L'évaluation par `scripts.evaluate` attend des références remplies à la main dans `annotations/`.
+
+---
+
+## Équipe
+
+- Abdou Maouda
+- Amine Touat
+- Raouf Ouibrahim
