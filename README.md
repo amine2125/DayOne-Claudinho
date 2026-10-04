@@ -171,6 +171,8 @@ Sous Windows : `.venv\Scripts\python -m uvicorn api.main:app --port 8000`. L'API
 
 Machine sans PaddleOCR ni Ollama (démonstration, développement) : `DAYONE_DEMO_EXTRACT=1` fait rejouer à l'API des sorties de lecture enregistrées dans `outputs/predictions/`. Jamais en production.
 
+Mettre la démo en ligne depuis cette machine (API + tableau de bord en HTTPS, tunnels Cloudflare gratuits, sans compte, données qui restent ici) : `brew install cloudflared`, puis `./scripts/demo_tunnel.sh`. Le script affiche les deux adresses et la ligne `DAYONE_API_URL=…` à mettre dans `whatsapp-bot/.env` (puis relancer le bot). Les adresses changent à chaque lancement, et l'API n'a pas de clé tant que `DAYONE_API_KEY` n'est pas définie : ne pas diffuser l'adresse.
+
 ---
 
 ## 5. Configuration
