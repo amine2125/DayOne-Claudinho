@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 import hmac
 import logging
+import re
 import time
 
 import httpx
@@ -111,6 +112,26 @@ async def drop_page(record_id: str, index: int) -> None:
 async def set_field(record_id: str, index: int, key: str, phone: str, value, status: str) -> dict:
     body = {"by": midwife_id(phone), "value": value, "status": status}
     return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields/{key}", json=body)
+
+
+async def add_field(record_id: str, index: int, phone: str, label: str, value: str) -> dict:
+    body = {"by": midwife_id(phone), "label": label, "value": value}
+    return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields", json=body)
+
+
+async def get_pdf(record_id: str) -> tuple[bytes, str]:
+    """Fiche PDF du dossier validé (octets, nom de fichier proposé par l'API)."""
+    async with _client(timeout=60.0) as client:
+        try:
+            response = await client.get(f"/api/records/{record_id}/pdf")
+        except httpx.HTTPError as exc:
+            logger.error("DayOne API unreachable (GET pdf): %s", exc)
+            raise ApiError("La fiche PDF n'a pas pu être préparée.") from exc
+    if response.status_code != 200:
+        logger.error("DayOne API error %s on GET pdf: %s", response.status_code, response.text[:200])
+        raise ApiError("La fiche PDF n'a pas pu être préparée.")
+    match = re.search(r'filename="([^"]+)"', response.headers.get("content-disposition", ""))
+    return response.content, match.group(1) if match else f"DayOne_{record_id}.pdf"
 
 
 async def confirm_field(record_id: str, index: int, key: str, phone: str) -> dict:

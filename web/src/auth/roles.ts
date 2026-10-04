@@ -10,6 +10,8 @@ export const PERMISSIONS = {
   /** The registry photo, always with personal zones masked. */
   original_image: ['MIDWIFE', 'SUPERVISOR'],
   dashboard: ['SUPERVISOR', 'EPIDEMIOLOGIST'],
+  /** The validated record as a printable PDF sheet (individual data: not for aggregate-only roles). */
+  record_pdf: ['MIDWIFE', 'SUPERVISOR'],
 } as const satisfies Record<string, readonly Role[]>
 
 export type Permission = keyof typeof PERMISSIONS

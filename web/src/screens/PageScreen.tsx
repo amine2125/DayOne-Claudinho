@@ -1,6 +1,7 @@
 import {
   ArrowLeftIcon,
   CircleCheckIcon,
+  FileDownIcon,
   FileJsonIcon,
   ImageIcon,
   LoaderIcon,
@@ -23,7 +24,8 @@ import { RecordStatusNote } from '@/components/RecordRow'
 import { SectionCard } from '@/components/SectionCard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { finalUrl, openFields, useAppState } from '@/services'
+import { useCan } from '@/auth/roles'
+import { finalUrl, openFields, pdfUrl, useAppState } from '@/services'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -57,6 +59,7 @@ export function PageScreen() {
   const busy = useAppState((s) => s.busy.includes(id))
   const [pageIndex, setPageIndex] = useState(Number(params.get('page') ?? 0))
   const [focus, setFocus] = useState<string>()
+  const canPdf = useCan('record_pdf')
 
   const page = record?.pages[pageIndex]
   const fields = useMemo(() => (page ? orderedFields(page) : []), [page])
@@ -93,6 +96,11 @@ export function PageScreen() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <RecordStatusNote record={record} />
+          {record.hasFinal && canPdf && (
+            <Button size="sm" render={<a href={pdfUrl(record.id)} target="_blank" rel="noreferrer" />}>
+              <FileDownIcon /> {t('record.pdf')}
+            </Button>
+          )}
           {record.hasFinal && (
             <Button variant="outline" size="sm" render={<a href={finalUrl(record.id)} target="_blank" rel="noreferrer" />}>
               <FileJsonIcon /> {t('record.finalJson')}

@@ -322,7 +322,7 @@ def test_arabic_label_and_handwriting_in_one_ocr_line_are_split():
 def test_leading_punctuation_is_not_part_of_the_value():
     img = np.full((100, 300, 3), 240, np.uint8)
     field, _ = _from_ocr(img, {"label": "Occupation", "text": ":Teacher", "score": 0.99, "box": (0, 0, 40, 20)}, 0.7)
-    assert field["value"] == "Teacher"
+    assert field["value"] == "Teacher" and field["status"] == "NEEDS_REVIEW"   # première lettre peut-être mangée
 
 
 def test_misread_arabic_name_label_is_still_personal():
@@ -349,3 +349,24 @@ def test_unread_handwriting_next_to_a_label_becomes_a_field():
     lines = _ids([L("Weight", 100, 40, 200, 60)])
     out = _ink_fields(img, lines, set(), 20, [], bm)
     assert [(c["label"], c["text"]) for c in out] == [("Weight", "")] and out[0]["box"][0] >= 290
+
+
+def test_place_guessed_by_model_is_always_reviewed():
+    from dayone.extract import PLACE_LABEL, _place
+
+    f = {"label": "Province", "kind": "text", **make_field("ElSaidida", "KNOWN", 0.95, source="ocr")}
+    _place(f, "El Jadida")
+    assert (f["value"], f["valeur_lue"], f["status"], f["raison"]) == ("El Jadida", "ElSaidida", "NEEDS_REVIEW", "lieu_corrige")
+    g = {"label": "Province", "kind": "text", **make_field("Kénitra", "KNOWN", 0.95, source="ocr")}
+    _place(g, "Kenitra")
+    assert (g["value"], g["status"]) == ("Kénitra", "KNOWN")                 # même nom : rien ne change
+    assert PLACE_LABEL.search("province") and PLACE_LABEL.search("الجهة") and not PLACE_LABEL.search("lieu")
+
+
+def test_handwritten_label_is_always_read():
+    img = np.full((200, 800, 3), 240, np.uint8)
+    lines = _ids([L("Poids : 62 kg", 10, 40, 200, 60, hand=True), L("Patate : 3", 10, 100, 200, 120, hand=True),
+                  L("Observations :", 10, 160, 150, 180), L("pas de signes : RAS", 170, 160, 400, 180, hand=True)])
+    fields = {c["label"]: (c["text"], c["hand_label"]) for c in _colon_fields(img, lines, set(), 20, [], blue_page=True)}
+    assert fields["Poids"] == ("62 kg", True) and fields["Patate"] == ("3", True)    # même un mot inconnu
+    assert fields["Observations"] == ("pas de signes : RAS", False)                 # valeur, pas une étiquette

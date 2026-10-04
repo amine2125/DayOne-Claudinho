@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     VONAGE_WHATSAPP_NUMBER: str = ""
     VONAGE_SANDBOX: bool = False
     VONAGE_API_HOST: str = "https://api.nexmo.com"
+    # Adresse publique de ce serveur (celle du webhook) : Vonage y récupère les PDF envoyés
+    PUBLIC_BASE_URL: str = ""
 
     # Clé du HMAC qui identifie la sage-femme sans son numéro : la changer change ses identifiants
     MIDWIFE_ID_SECRET: str = ""

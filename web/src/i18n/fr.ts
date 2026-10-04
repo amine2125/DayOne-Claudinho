@@ -77,6 +77,7 @@ export const fr = {
 
   'record.codePending': 'Code à venir',
   'record.finalJson': 'Résultat final (JSON)',
+  'record.pdf': 'Fiche PDF',
   // page types
   'page.unknown': 'Page non reconnue',
   'page.fiche_surveillance': 'Fiche de surveillance',

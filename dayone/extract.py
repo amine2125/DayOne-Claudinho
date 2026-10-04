@@ -48,6 +48,8 @@ HEALTH_PREFIXES = ("grossess", "accouch", "naissan", "vaccin", "gestat", "partum
                    "التلقيح", "ضغط", "الضغط")
 MIN_HEALTH_WORDS = 3
 MIN_REGISTRY_WORDS = 5
+# Étiquettes qui attendent un nom de lieu (« Lieu » seul : maison / hôpital, pas une ville).
+PLACE_LABEL = re.compile(r"\b(region|province|prefecture|ville|city|wilaya|commune)\b|الجه[ةه]|اقليم|عمال[ةه]|مدين[ةه]")
 
 
 class NotAFormError(ValueError):
@@ -116,7 +118,7 @@ def extract_page(source, use_model: bool = True, model: str = vlm.DEFAULT_MODEL,
     elif not _health_words(lines):
         raise NotAFormError("Cette image ne ressemble pas à une fiche de santé (aucun mot du domaine lu).")
 
-    doubtful = []
+    doubtful, places = [], []
     for c, is_pers in zip(candidates, personal):
         if is_pers:
             dropped["personnels"] += 1
@@ -124,6 +126,12 @@ def extract_page(source, use_model: bool = True, model: str = vlm.DEFAULT_MODEL,
         field, needs_model = _from_ocr(img, c, threshold, blue_page, bm)
         if "col" in c:
             field["colonne"] = c["col"]
+        if field["kind"] == "text" and PLACE_LABEL.search(fold(c["label"])):
+            places.append((field, c))
+        if c.get("hand_label"):
+            field["raison"] = "etiquette_manuscrite"
+            if field["status"] == "KNOWN":
+                field.update(status="NEEDS_REVIEW", confidence=min(field["confidence"], SINGLE_READER_CAP))
         fields.append(field)
         if needs_model:
             doubtful.append((field, c))
@@ -132,18 +140,23 @@ def extract_page(source, use_model: bool = True, model: str = vlm.DEFAULT_MODEL,
         field.update(_loose_cap(field), raison="non_rattache")
         fields.append(field)
         doubtful.append((field, c))
-    if doubtful and model_ok:
+    if (doubtful or places) and model_ok:
         say(f"Relecture de {len(doubtful)} valeur(s) douteuse(s) ou non rattachée(s) par {model}")
         try:
             for field, c in doubtful:
                 answer = vlm.read_value(_crop(safe, _with_label(c), th), c["label"], model)
                 field.update(_combine(field, c, answer, threshold))
+                c["answer"] = answer
                 if c.get("loose"):
                     field.update(_loose_cap(field))
                 if is_personal(field["label"], str(field["value"] or "")) or is_personal("", answer):
                     field["drop"] = True
                     zones.append(c["box"])
                     ids.append(answer)
+            for field, c in places:
+                if isinstance(field["value"], str) and not field.get("drop"):
+                    _place(field, vlm.suggest_place(_crop(safe, c["box"], th), c["label"],
+                                                    [c["text"], c.get("answer", ""), field["value"]], model))
         finally:
             vlm.unload(model)
     elif model_ok:
@@ -453,9 +466,10 @@ def _rtl(text: str) -> bool:
 
 
 def _label_part(l: dict) -> tuple[str, str] | None:
-    """« Étiquette : suite » (l'OCR lit parfois « ; ») -> (étiquette, suite), si la ligne est imprimée."""
+    """« Étiquette : suite » (l'OCR lit parfois « ; ») -> (étiquette, suite). Imprimée ou écrite au stylo :
+    une étiquette ajoutée à la main par la sage-femme (« Poids : 62 kg ») est lue aussi, puis à vérifier."""
     m = re.match(r"\s*([^:;]*?[A-Za-zÀ-ÿ\u0621-\u064a]{2}[^:;]*?)\s*[:;](.*)", l["text"])
-    if not m or l["hand"]:
+    if not m:
         return None
     return m.group(1).strip(), m.group(2).strip()
 
@@ -466,6 +480,13 @@ def _colon_fields(img, lines, used, th, tables, blue_page: bool, bm=None) -> lis
     vers le champ du dessus ou du dessous."""
     free = [l for l in lines if l["i"] not in used and not any(_inside(l["box"], t) for t in tables)]
     labels = [(l, *lp) for l in free if (lp := _label_part(l))]
+    # Écriture avec « : » juste après une étiquette imprimée de la même rangée : c'est sa valeur
+    # (« Observations : pas de signes : RAS »), pas une étiquette manuscrite.
+    printed = [l for l, _, _ in labels if not l["hand"]]
+    labels = [(l, lab, after) for l, lab, after in labels if not l["hand"] or not any(
+        abs(_center(p["box"])[1] - _center(l["box"])[1]) < 0.8 * th
+        and -3 * th <= (p["box"][0] - l["box"][2] if _rtl(p["text"]) else l["box"][0] - p["box"][2]) <= 12 * th
+        for p in printed)]
     label_ids = {l["i"] for l, _, _ in labels}
     attached = {l["i"]: [] for l, _, _ in labels}
     for v in free:
@@ -495,7 +516,7 @@ def _colon_fields(img, lines, used, th, tables, blue_page: bool, bm=None) -> lis
         # Texte après « : » dans la même ligne OCR : valeur seulement s'il est écrit à la main
         # (encre bleue dans cette partie de la ligne), ou si l'on ne peut pas le savoir (stylo noir).
         after_blue = bm is not None and int((bm[ly0:ly1, lx0:cut] if rtl else bm[ly0:ly1, cut:lx1]).sum()) >= 40
-        after_ok = after and (not blue_page or after_blue
+        after_ok = after and (not blue_page or after_blue or l["hand"]
                               or sum(c.isdigit() for c in after) > sum(c.isalpha() for c in after))
         texts = ([after] if after_ok else []) + [m["text"] for m in parts]
         scores = ([l["score"]] if after_ok else []) + [m["score"] for m in parts]
@@ -511,7 +532,7 @@ def _colon_fields(img, lines, used, th, tables, blue_page: bool, bm=None) -> lis
             x1 = min([x1, img.shape[1]] + [m["box"][0] - 4 for m in same_row if m["box"][0] > lx1])
             box = (x0, ly0, max(x1, x0 + 1), ly1)
         out.append({"label": label, "text": " ".join(texts).strip(), "score": min(scores) if scores else 0.0,
-                    "box": tuple(int(v) for v in box), "label_box": l["box"]})
+                    "box": tuple(int(v) for v in box), "label_box": l["box"], "hand_label": l["hand"]})
     return out
 
 
@@ -699,7 +720,7 @@ def _health_words(lines) -> bool:
 def _flag(f: dict) -> None:
     """Raison visible de chaque doute. Étiquette nouvelle ou mal lue (vocabulaire) : jamais KNOWN, même si
     la valeur est bien lue. Raisons : non_rattache, etiquette_douteuse, champ_nouveau, choix_nouveau,
-    valeur_douteuse."""
+    lieu_corrige, etiquette_manuscrite, valeur_douteuse."""
     reason, distrust = f.get("raison"), False
     if not reason:
         reason = label_reason(f["label"])
@@ -715,6 +736,20 @@ def _flag(f: dict) -> None:
         reason = "valeur_douteuse"
     if reason:
         f["raison"] = reason
+
+
+def _place(f: dict, suggestion: str) -> None:
+    """Nom de lieu deviné par le modèle (« ElSaidida » -> « El Jadida ») : la lecture d'origine est gardée,
+    et le champ reste toujours à vérifier (le modèle peut se tromper de ville)."""
+    suggestion = suggestion.strip()
+    if not suggestion or len(suggestion) > 60 or fold(suggestion) == fold(f["value"]) \
+            or suggestion.upper() in ("EMPTY", "ILLEGIBLE") or is_personal("", suggestion):
+        return
+    f["valeur_lue"] = f["value"]
+    f["value"] = suggestion
+    f["raison"] = "lieu_corrige"
+    if f["status"] == "KNOWN":
+        f.update(status="NEEDS_REVIEW", confidence=min(f["confidence"], SINGLE_READER_CAP))
 
 
 def _loose_cap(field: dict) -> dict:
@@ -757,8 +792,10 @@ def _from_ocr(img, c: dict, threshold: float, blue_page: bool = False, bm=None) 
     """Champ tel que lu par l'OCR, et faut-il le faire relire par le modèle ?"""
     kind = infer_kind(c["label"])
     base = {"label": c["label"], "kind": kind}
-    # Reste du trait ou des deux-points collé devant la valeur (« :Teacher », « _Normal »).
+    # Reste du trait ou des deux-points collé devant la valeur (« :Teacher », « _Normal ») : retiré, mais
+    # la première lettre a pu être mangée par le trait (« _Cycée » pour « Lycée ») -> relue par le modèle.
     text = re.sub(r"^[\s:;_.,]+(?=\S)", "", c["text"]) if re.search(r"\w", c["text"]) else c["text"]
+    trimmed = text != c["text"].strip()
     if not text or re.fullmatch(r"[\s._…·]+|[\s._…·\-–—]{3,}", text):
         if imaging.ink_pixels(img, c["box"], blue_only=blue_page, bm=bm) >= MIN_INK:
             return {**base, **make_field(None, "NEEDS_REVIEW", 0.3, source="ocr")}, True   # encre sans texte lu
@@ -774,8 +811,9 @@ def _from_ocr(img, c: dict, threshold: float, blue_page: bool = False, bm=None) 
     value, format_ok = parse(kind, text, c["label"])
     if value is None:
         value = text
-    sure = c["score"] >= SURE_SCORE and format_ok and not _looks_odd(text) and read_as is None
-    conf = c["score"] * (1.0 if format_ok else 0.6) * (0.6 if _looks_odd(text) else 1.0)
+    odd = _looks_odd(text) or (trimmed and kind == "text")
+    sure = c["score"] >= SURE_SCORE and format_ok and not odd and read_as is None
+    conf = c["score"] * (1.0 if format_ok else 0.6) * (0.6 if odd else 1.0)
     if read_as is not None:
         conf = min(conf, SINGLE_READER_CAP)
     status = "KNOWN" if sure and conf >= threshold else "NEEDS_REVIEW"

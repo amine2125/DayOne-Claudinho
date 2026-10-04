@@ -7,6 +7,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request, Re
 from app.config import get_settings
 from app.processor import is_duplicate_message, process_message
 from app.security import mask_phone, verify_signature
+from app.whatsapp import take_file
 
 # Configuration du logging
 logging.basicConfig(
@@ -33,6 +34,16 @@ async def root():
         "service": "whatsapp-bot",
         "version": "1.0.0"
     }
+
+
+@app.get("/files/{token}")
+async def shared_file(token: str) -> Response:
+    """PDF envoyé sur WhatsApp, récupéré par Vonage (jeton aléatoire, valable quelques minutes)."""
+    hit = take_file(token)
+    if hit is None:
+        raise HTTPException(status_code=404, detail="Not found")
+    data, filename, mime_type = hit
+    return Response(data, media_type=mime_type, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 async def _signed_payload(request: Request, authorization: str | None) -> dict | None:

@@ -36,3 +36,7 @@ captures/
 # Base de démonstration (scripts/seed_demo.py)
 .demo_key
 demo_captures/
+
+# Clé de l'API locale (créée par DayOne.command)
+.api_key
+logs/

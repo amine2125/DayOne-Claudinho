@@ -2,6 +2,8 @@
 
 import logging
 import re
+import secrets
+import time
 from typing import Tuple
 from urllib.parse import urlparse
 
@@ -132,6 +134,74 @@ async def send_buttons(to: str, body: str, buttons: list[tuple[str, str]]) -> No
         await send_text(to, f"{body}\n\n👉 Répondez {words}.")
         return
     logger.info("Buttons sent successfully to %s", mask_phone(to))
+
+
+async def send_list(to: str, body: str, button: str, rows: list[tuple[str, str]]) -> None:
+    """Send a list message: a button that opens up to 10 clickable rows.
+
+    Le clic revient dans le webhook comme un message `reply` portant l'id de la ligne (comme un bouton).
+    Si Vonage refuse le message interactif, les choix partent en texte numéroté.
+
+    Args:
+        to: Destination WhatsApp phone number.
+        body: Message text (1024 characters max).
+        button: Label of the button that opens the list (20 characters max).
+        rows: (id, title) pairs, 10 at most; title is 24 characters max.
+    """
+    interactive = {
+        "type": "list",
+        "body": {"text": body[:1024]},
+        "action": {
+            "button": button[:20],
+            "sections": [{"title": "Options", "rows": [{"id": rid, "title": title[:24]} for rid, title in rows[:10]]}],
+        },
+    }
+    payload = _message(to, message_type="custom", custom={"type": "interactive", "interactive": interactive})
+    try:
+        async with httpx.AsyncClient(auth=_auth(), timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+            await _post(client, payload)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            raise
+        choices = "\n".join(f"• *{rid}* : {title}" for rid, title in rows[:10])
+        await send_text(to, f"{body}\n\n{choices}\n\n👉 Répondez avec le mot en gras.")
+        return
+    logger.info("List sent successfully to %s", mask_phone(to))
+
+
+# Fichiers prêts à être récupérés par Vonage (GET /files/{jeton} sur ce serveur) : l'API Messages
+# n'accepte un document que par URL publique. Jeton aléatoire, effacé après quelques minutes.
+FILE_TTL_SECONDS = 600
+_files: dict[str, tuple[float, bytes, str, str]] = {}
+
+
+def take_file(token: str) -> tuple[bytes, str, str] | None:
+    """Fichier déposé par send_document (octets, nom, type), s'il n'a pas expiré."""
+    now = time.monotonic()
+    for t in [t for t, (at, *_rest) in _files.items() if now - at > FILE_TTL_SECONDS]:
+        del _files[t]
+    hit = _files.get(token)
+    return hit[1:] if hit else None
+
+
+async def send_document(to: str, data: bytes, filename: str, caption: str = "",
+                        mime_type: str = "application/pdf") -> None:
+    """Send a file (the record's PDF) that the user can open and download.
+
+    Le fichier est servi un court instant par ce serveur (PUBLIC_BASE_URL, l'adresse publique du
+    webhook) et Vonage le récupère par son URL. Sans adresse publique : un texte l'indique.
+    """
+    base = get_settings().PUBLIC_BASE_URL.rstrip("/")
+    if not base:
+        await send_text(to, f"{caption}\n\n(La fiche PDF est disponible sur le tableau de bord DayOne.)")
+        return
+    token = secrets.token_urlsafe(24)
+    _files[token] = (time.monotonic(), data, filename, mime_type)
+    payload = _message(to, message_type="file",
+                       file={"url": f"{base}/files/{token}", "caption": caption[:1024], "name": filename})
+    async with httpx.AsyncClient(auth=_auth(), timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+        await _post(client, payload)
+    logger.info("Document sent successfully to %s (%d bytes)", mask_phone(to), len(data))
 
 
 async def mark_as_read(message_uuid: str) -> None:

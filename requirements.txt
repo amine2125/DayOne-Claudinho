@@ -16,3 +16,6 @@ uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 httpx>=0.27
 cryptography>=42
+# Fiche PDF (api/pdf.py) : mise en page, et mise en forme de l'arabe
+fpdf2>=2.8
+uharfbuzz>=0.40
