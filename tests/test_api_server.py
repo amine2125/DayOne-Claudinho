@@ -110,3 +110,25 @@ def test_capture_page_par_page_puis_code_et_resultat_final(monkeypatch):
     final = client.get(f"/api/records/{rid}/final")
     assert final.status_code == 200 and final.json()["patient_code"] == "AMN-27" and len(final.json()["pages"]) == 2
     assert client.post(f"/api/records/{rid}/pages", files={"file": PNG}).status_code == 409   # dossier envoyé
+
+
+def test_cle_d_api_exigee_quand_configuree(monkeypatch):
+    monkeypatch.setattr(server, "API_KEY", "secret-de-test")
+    assert client.get("/health").status_code == 200                      # santé : toujours ouverte
+    assert client.post("/api/records", files={"photo": PNG}).status_code == 401
+    assert client.get("/api/snapshot").status_code == 401                 # pas depuis cette machine : clé exigée
+    r = client.get("/api/snapshot", headers={"Authorization": "Bearer mauvaise"})
+    assert r.status_code == 401
+    assert client.get("/api/snapshot", headers={"Authorization": "Bearer secret-de-test"}).status_code == 200
+
+
+def test_tableau_de_bord_local_sans_cle(monkeypatch):
+    monkeypatch.setattr(server, "API_KEY", "secret-de-test")
+    local = TestClient(server.app, client=("127.0.0.1", 50000))
+    assert local.get("/api/snapshot").status_code == 200                  # lecture locale : permise
+    assert local.post("/api/records", files={"photo": PNG}).status_code == 401   # écriture : clé exigée
+
+
+def test_sans_cle_configuree_rien_ne_change(monkeypatch):
+    monkeypatch.setattr(server, "API_KEY", "")
+    assert client.get("/api/snapshot").status_code == 200

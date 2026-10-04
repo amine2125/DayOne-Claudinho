@@ -25,6 +25,14 @@ VALUE_PROMPT = (
 )
 
 
+PLACE_PROMPT = (
+    "This image is a small crop of a handwritten health form from Morocco, field \"{label}\", which holds a place "
+    "name (region, province or city). Readers saw: {readings}. Handwriting is often misread. Give the correct "
+    "spelling of the real place name written here (for example El Jadida, Casablanca-Settat, Kénitra). If you are "
+    "not sure, repeat the most likely reading. Answer with the place name only."
+)
+
+
 class NotLocalError(RuntimeError):
     pass
 
@@ -86,6 +94,19 @@ def read_value(crop: np.ndarray, label: str, model: str = DEFAULT_MODEL) -> str:
         think=False, options={"temperature": 0, "num_ctx": 2048, "num_predict": 40}, keep_alive="2m",
     )
     t = re.sub(r"<think>.*?</think>", "", resp.message.content, flags=re.S).strip().strip('"').strip()
+    return t.splitlines()[0].strip() if t else ""
+
+
+def suggest_place(crop: np.ndarray, label: str, readings: list[str], model: str = DEFAULT_MODEL) -> str:
+    """Nom de lieu mal lu -> orthographe du vrai lieu, deviné par le modèle (toujours à faire vérifier)."""
+    shown = ", ".join(f"\"{r}\"" for r in dict.fromkeys(r for r in readings if r)) or "nothing"
+    resp = _client(model).chat(
+        model=model,
+        messages=[{"role": "user", "content": PLACE_PROMPT.format(label=label, readings=shown),
+                   "images": [_png(_fit(crop, 768))]}],
+        think=False, options={"temperature": 0, "num_ctx": 2048, "num_predict": 20}, keep_alive="2m",
+    )
+    t = re.sub(r"<think>.*?</think>", "", resp.message.content, flags=re.S).strip().strip('"').strip(" .")
     return t.splitlines()[0].strip() if t else ""
 
 

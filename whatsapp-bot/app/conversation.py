@@ -11,7 +11,10 @@ en arrière-plan pendant que la sage-femme photographie la page suivante.
       2 Corriger  ──▶ CHOOSE_FIELD ──numéro──▶ EDIT_VALUE ──valeur──▶ REVIEW
       3 Voir      ──▶ liste des valeurs ──▶ REVIEW
       4 Reprendre ──▶ RETAKE ──photo──▶ relecture de cette page seule ──▶ REVIEW
+      5 Ajouter   ──▶ ADD_LABEL ──nom du champ──▶ ADD_VALUE ──valeur──▶ REVIEW   (champ oublié par la lecture)
       5 Ignorer   (page illisible seulement)
+
+Tous les choix sont cliquables (boutons jusqu'à 3 options, liste au-delà) ; taper le chiffre marche aussi.
 
 Tout ce que la sage-femme fait passe par l'API : le tableau de bord voit le dossier en direct.
 « annuler » remet la conversation à zéro ; un dossier déjà créé reste « à vérifier » sur le tableau de bord.
@@ -29,7 +32,7 @@ from app import backend, render
 from app.backend import ApiError
 from app.config import get_settings
 from app.security import mask_phone
-from app.whatsapp import download_media, send_buttons, send_text
+from app.whatsapp import download_media, send_buttons, send_list, send_text
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +48,13 @@ BACK = "0"
 BACK_WORD = "retour"
 CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9 \-_/]{0,19}")
 
+# Menus cliquables : (id renvoyé au clic, titre). L'id est le chiffre qu'on pourrait aussi taper.
+REVIEW_MENU = [("1", "✅ Confirmer la page"), ("2", "✏️ Corriger un champ"), ("3", "📋 Voir les valeurs"),
+               ("4", "📷 Reprendre la photo"), ("5", "➕ Ajouter un champ")]
+UNCERTAIN_MENU = [("1", "✅ Tout est vérifié"), ("2", "✏️ Corriger")]
+MAX_BODY = 1000           # texte d'un message cliquable (limite Meta : 1024)
+MAX_FIELD_ROWS = 8        # lignes « champ » dans la liste de correction (10 lignes au plus en tout)
+
 
 class State(str, Enum):
     IDLE = "idle"
@@ -55,6 +65,8 @@ class State(str, Enum):
     CHOOSE_FIELD = "choose_field"
     EDIT_VALUE = "edit_value"
     RETAKE = "retake"
+    ADD_LABEL = "add_label"
+    ADD_VALUE = "add_value"
     LINK = "link"
 
 
@@ -66,6 +78,7 @@ class Session:
     record: dict | None = None        # dernier état du dossier renvoyé par l'API (après lecture)
     current: int = 0                  # position de la page affichée dans record["pages"]
     edit_key: str | None = None
+    new_label: str | None = None      # champ en cours d'ajout
     candidates: list[dict] = field(default_factory=list)
     updated_at: float = field(default_factory=time.time)
 
@@ -111,8 +124,8 @@ HELP_TEXT = (
     "🤖 *Assistant registre DayOne*\n\n"
     "📸 Envoyez la photo d'une page du registre (une ou plusieurs pages) : chacune est enregistrée et lue "
     "dès sa réception. Appuyez ensuite sur *Terminé* et donnez le code patiente écrit sur le registre.\n"
-    "Je lis chaque page, puis vous pouvez :\n"
-    "1️⃣ confirmer · 2️⃣ corriger un champ · 3️⃣ voir les valeurs · 4️⃣ reprendre la photo\n\n"
+    "Je lis chaque page, puis vous pouvez (boutons cliquables) :\n"
+    "✅ confirmer · ✏️ corriger un champ · 📋 voir les valeurs · 📷 reprendre la photo · ➕ ajouter un champ oublié\n\n"
     "⚙️ *Commandes* : */aide* · */status* · *annuler*"
 )
 STATUS_TEXT = "🟢 *Service en ligne* : le bot WhatsApp est opérationnel."
@@ -120,6 +133,17 @@ GREETING_TEXT = (
     "👋 Bonjour ! Envoyez la photo d'une page du registre pour commencer.\n"
     "Tapez */aide* pour en savoir plus."
 )
+
+
+async def _menu(phone: str, body: str, options: list[tuple[str, str]], button: str = "Choisir") -> None:
+    """Choix cliquables : 3 options au plus → boutons, sinon liste. Un texte trop long part à part."""
+    if len(body) > MAX_BODY:
+        await send_text(to=phone, body=body)
+        body = "👇 Choisissez :"
+    if len(options) <= 3:
+        await send_buttons(phone, body, options)
+    else:
+        await send_list(phone, body, button, options)
 
 
 # --- Points d'entrée ---
@@ -188,6 +212,8 @@ async def _handle_text(phone: str, text: str) -> None:
         State.CHOOSE_FIELD: _on_field_choice,
         State.EDIT_VALUE: _on_new_value,
         State.RETAKE: _on_retake_text,
+        State.ADD_LABEL: _on_add_label,
+        State.ADD_VALUE: _on_add_value,
         State.LINK: _on_link_choice,
     }
     await handlers[session.state](phone, session, text)
@@ -213,15 +239,16 @@ async def _on_collecting_text(phone: str, session: Session, text: str) -> None:
     session.record = await backend.wait_until_read(session.record_id, session.sent)
     session.current = 0
     session.state = State.ASK_CODE
-    await send_text(to=phone, body=_code_question(session))
+    await _ask_code(phone, session)
 
 
-def _code_question(session: Session) -> str:
+async def _ask_code(phone: str, session: Session) -> None:
     suggestion = session.record.get("codeSuggestion")
     if suggestion:
-        return (f"🔖 Code patiente lu sur le registre : *{suggestion}*\n"
-                "Répondez *1* pour le garder, ou tapez le bon code.")
-    return "🔖 Quel est le *code patiente* écrit sur le registre ?"
+        await _menu(phone, f"🔖 Code patiente lu sur le registre : *{suggestion}*\n"
+                           "Gardez-le, ou tapez le bon code.", [("1", "✅ Garder ce code")])
+    else:
+        await send_text(to=phone, body="🔖 Quel est le *code patiente* écrit sur le registre ?")
 
 
 async def _on_code(phone: str, session: Session, text: str) -> None:
@@ -301,10 +328,13 @@ async def _refresh(session: Session, wait: bool = False) -> None:
 async def _show_page(phone: str, session: Session) -> None:
     session.state = State.REVIEW
     if "error" in session.page or not session.page.get("fields"):
-        body = render.failed_page_text(session.page, session.current, session.total, can_drop=session.total > 1)
+        can_drop = session.total > 1
+        body = render.failed_page_text(session.page, session.current, session.total, can_drop=can_drop)
+        options = [("4", "📷 Reprendre la photo")] + ([("5", "🗑️ Ignorer la page")] if can_drop else [])
+        await _menu(phone, body, options)
     else:
-        body = render.review_text(session.page, session.current, session.total)
-    await send_text(to=phone, body=body)
+        await _menu(phone, render.review_text(session.page, session.current, session.total), REVIEW_MENU,
+                    button="Que faire ?")
 
 
 # --- Menu d'une page ---
@@ -312,7 +342,7 @@ async def _show_page(phone: str, session: Session) -> None:
 async def _on_menu_choice(phone: str, session: Session, text: str) -> None:
     choice = parse_choice(text)
     failed = "error" in session.page or not session.page.get("fields")
-    valid = ((4, 5) if session.total > 1 else (4,)) if failed else (1, 2, 3, 4)
+    valid = ((4, 5) if session.total > 1 else (4,)) if failed else (1, 2, 3, 4, 5)
 
     if choice not in valid:
         options = " ou ".join(str(v) for v in valid) if len(valid) <= 2 else \
@@ -324,7 +354,7 @@ async def _on_menu_choice(phone: str, session: Session, text: str) -> None:
     if choice == 1:
         if render.uncertain(session.page):
             session.state = State.CONFIRM_UNCERTAIN
-            await send_text(to=phone, body=render.confirm_uncertain_text(session.page))
+            await _menu(phone, render.confirm_uncertain_text(session.page), UNCERTAIN_MENU)
             return
         await _next_page(phone, session)
     elif choice == 2:
@@ -341,6 +371,13 @@ async def _on_menu_choice(phone: str, session: Session, text: str) -> None:
         await send_text(
             to=phone,
             body=f"📷 Envoyez une nouvelle photo de la page {session.current + 1} (bien à plat, sans reflet).{back}",
+        )
+    elif choice == 5 and not failed:
+        session.state = State.ADD_LABEL
+        await send_text(
+            to=phone,
+            body="➕ *Nom du champ à ajouter*, tel qu'écrit sur la page (ex. « Groupe sanguin »).\n"
+                 "Tapez *retour* pour revenir.",
         )
     elif choice == 5:
         was_last = session.current == session.total - 1
@@ -365,7 +402,7 @@ async def _on_confirm_uncertain(phone: str, session: Session, text: str) -> None
         await _ask_field(phone, session)
     else:
         await send_text(to=phone, body=f"❌ « {text.strip()[:30]} » n'est pas une des options proposées. Répondez 1 ou 2.")
-        await send_text(to=phone, body=render.confirm_uncertain_text(session.page))
+        await _menu(phone, render.confirm_uncertain_text(session.page), UNCERTAIN_MENU)
 
 
 async def _next_page(phone: str, session: Session) -> None:
@@ -382,18 +419,27 @@ async def _finish(phone: str, session: Session) -> None:
     await backend.validate(session.record_id)
     session.candidates = await backend.candidates(session.record_id)
     session.state = State.LINK
-    await send_text(to=phone, body=render.link_text(session.record.get("patientCode", ""), session.candidates))
+    await _link_menu(phone, session)
+
+
+async def _link_menu(phone: str, session: Session) -> None:
+    n = len(session.candidates[:8])
+    rows = [(str(i), f"👤 {c['code']}") for i, c in enumerate(session.candidates[:8], start=1)]
+    rows += [(str(n + 1), "➕ Nouvelle patiente" if n else "➕ Créer la patiente"), (str(n + 2), "❓ Je ne sais pas")]
+    await _menu(phone, render.link_text(session.record.get("patientCode", ""), session.candidates), rows,
+                button="Choisir la patiente")
 
 
 # --- Patiente ---
 
 async def _on_link_choice(phone: str, session: Session, text: str) -> None:
+    session.candidates = session.candidates[:8]   # celles proposées dans la liste cliquable
     n = len(session.candidates)
     choice = parse_choice(text)
     create, unsure = (n + 1, n + 2) if n else (1, 2)
     if choice is None or not 1 <= choice <= unsure:
         await send_text(to=phone, body=f"❌ « {text.strip()[:30]} » n'est pas une des options proposées. Répondez de 1 à {unsure}.")
-        await send_text(to=phone, body=render.link_text(session.record.get("patientCode", ""), session.candidates))
+        await _link_menu(phone, session)
         return
 
     record_id = session.record_id
@@ -415,14 +461,22 @@ async def _on_link_choice(phone: str, session: Session, text: str) -> None:
 # --- Correction d'un champ ---
 
 async def _ask_field(phone: str, session: Session, include_empty: bool = False) -> None:
+    """Liste numérotée des champs (texte), puis une liste cliquable : champs à vérifier d'abord."""
     session.state = State.CHOOSE_FIELD
-    footer = "\n\nTapez *0* pour revenir au menu." if include_empty else \
-        "\n\nTapez *tout* pour voir aussi les champs vides, *0* pour revenir au menu."
     await send_text(
         to=phone,
-        body="✏️ *Quel champ corriger ?* Répondez avec son numéro.\n(⚠️ = à vérifier)\n\n"
-             f"{render.values_text(session.page, include_empty=include_empty)}{footer}",
+        body="✏️ *Quel champ corriger ?* Choisissez-le ci-dessous, ou tapez son numéro.\n(⚠️ = à vérifier)\n\n"
+             f"{render.values_text(session.page, include_empty=include_empty)}",
     )
+    shown = [nf for nf in render.numbered_fields(session.page)
+             if include_empty or nf.field.get("status") in render.SHOWN_STATUSES]
+    first = sorted(shown, key=lambda nf: nf.field.get("status") not in render.UNCERTAIN_STATUSES)[:MAX_FIELD_ROWS]
+    rows = [(str(nf.number), f"{'⚠️ ' if nf.field.get('status') in render.UNCERTAIN_STATUSES else ''}"
+                             f"{nf.number}. {nf.label}") for nf in first]
+    rows.append(("0", "↩️ Retour au menu") if include_empty else ("tout", "📋 Voir aussi les vides"))
+    if not include_empty:
+        rows.append(("0", "↩️ Retour au menu"))
+    await _menu(phone, "👇 Champ à corriger :", rows, button="Choisir le champ")
 
 
 async def _on_field_choice(phone: str, session: Session, text: str) -> None:
@@ -478,4 +532,43 @@ async def _on_new_value(phone: str, session: Session, text: str) -> None:
     fields[key] = updated
     session.edit_key = None
     await send_text(to=phone, body=f"✅ *{nf.label}* : {render.format_value(nf.kind, updated)}")
+    await _show_page(phone, session)
+
+
+# --- Ajout d'un champ oublié par la lecture ---
+
+async def _on_add_label(phone: str, session: Session, text: str) -> None:
+    label = " ".join(text.split())
+    if label.lower() == BACK_WORD:
+        await _show_page(phone, session)
+        return
+    if not 2 <= len(label) <= 80:
+        await send_text(to=phone, body="❌ Nom de champ entre 2 et 80 caractères, s'il vous plaît (ou *retour*).")
+        return
+    session.new_label = label
+    session.state = State.ADD_VALUE
+    await send_text(
+        to=phone,
+        body=f"✏️ Valeur de *{label}* sur la page ?\nTapez *?* si l'information est inconnue, *-* si le champ est vide, "
+             "*retour* pour revenir.",
+    )
+
+
+async def _on_add_value(phone: str, session: Session, text: str) -> None:
+    label = session.new_label
+    if text.strip().lower() == BACK_WORD or not label:
+        session.new_label = None
+        await _show_page(phone, session)
+        return
+    session.new_label = None
+    try:
+        added = await backend.add_field(session.record_id, session.page["index"], phone, label, text.strip())
+    except ApiError as exc:
+        # Refus de l'API (donnée personnelle…) : on le dit, puis retour au menu de la page
+        await send_text(to=phone, body=f"⚠️ {exc}")
+        await _show_page(phone, session)
+        return
+    await _refresh(session)
+    await send_text(to=phone, body=f"✅ Champ ajouté · *{added['label']}* : "
+                                   f"{render.format_value(added.get('kind', 'text'), added)}")
     await _show_page(phone, session)

@@ -5,13 +5,22 @@ Hackathon CodeML 2026, défi 17. Tout tourne en local. **Aucun gabarit** : le lo
 
 ## Lancer
 
-**Double-cliquer sur `DayOne.command`.** Ollama et l'interface démarrent, et le navigateur s'ouvre sur http://localhost:8501. Fermer la fenêtre noire arrête tout.
+**Double-cliquer sur `DayOne.command`.** Tout démarre sur cette machine, et le navigateur s'ouvre sur le tableau de bord. Fermer la fenêtre noire arrête tout (journaux : `logs/`).
+
+| Brique | Adresse | Démarrée si… |
+|---|---|---|
+| Tableau de bord | http://localhost:5173 | Node.js est installé |
+| API (base chiffrée) | http://127.0.0.1:8000 (`/docs`) | toujours |
+| Agent WhatsApp | http://127.0.0.1:8001 | `whatsapp-bot/.env` existe (puis tunnel : voir `whatsapp-bot/README.md`) |
+| Banc de test (import d'une photo) | http://localhost:8501 | toujours |
+
+L'API exige une clé (`.api_key`, créée au premier lancement, jamais commitée) : l'agent WhatsApp la reçoit automatiquement. Seules la lecture du tableau de bord depuis cette machine et `/health` s'en passent.
 
 - Au premier lancement, les modèles se téléchargent une seule fois : Ollama (~3,3 Go) et PaddleOCR français/anglais/arabe (~20 Mo). Ensuite, tout marche hors ligne.
 - Interface en **français ou en anglais** (choix en haut de la barre latérale). La fiche peut être en français, en arabe ou en anglais.
 - Si macOS bloque le fichier : clic droit → Ouvrir → Ouvrir.
 
-Dans l'interface :
+Dans le banc de test :
 
 1. Importer une photo, ou choisir une page du jeu de données.
 2. Cliquer sur **Lire la fiche** (environ 1 minute).
@@ -68,6 +77,8 @@ Chaque champ sort sous la forme `{id, label, kind, value, status, confidence, so
 | `etiquette_douteuse` | Étiquette mal lue (« 33A$A-11 ») |
 | `choix_nouveau` | Case dont le nom est inconnu du registre |
 | `non_rattache` | Écriture rattachée à aucun champ |
+| `lieu_corrige` | Région / Province / Ville mal lue : le modèle propose le vrai nom de lieu ; lecture d'origine gardée, toujours à vérifier |
+| `etiquette_manuscrite` | Nom du champ écrit au stylo par la sage-femme : lu quel qu'il soit, toujours à vérifier |
 | `valeur_douteuse` | Désaccord OCR / modèle, format bizarre, un seul lecteur |
 
 Le vocabulaire **ne sert pas à lire** : un champ inconnu est lu quand même, mais n'est jamais KNOWN. Il est généré depuis le texte **imprimé** du PDF du registre et des photos (jamais l'écriture, jamais un nom) : `.venv/bin/python -m scripts.build_vocabulary`. Les mêmes mots en **arabe et en anglais** sont dans `schema/vocabulaire_ar_en.txt` (écrit à la main). Il ne se remplit jamais tout seul ; on peut y ajouter un mot à la main.
@@ -98,6 +109,10 @@ Le vocabulaire **ne sert pas à lire** : un champ inconnu est lu quand même, ma
 python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # Ollama : https://ollama.com, puis
 ollama pull qwen3-vl:4b-instruct
+# API et agent WhatsApp
+.venv/bin/pip install -r whatsapp-bot/requirements.txt
+# Tableau de bord : Node.js (https://nodejs.org), puis
+cd web && npm ci
 ```
 
 Les modèles PaddleOCR (détection, latin, arabe) se téléchargent au premier lancement de `DayOne.command` (ou : `.venv/bin/python -m dayone.ocr --download`) ; ensuite tout marche hors ligne.

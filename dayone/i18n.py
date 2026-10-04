@@ -91,10 +91,12 @@ STATUS = {
 REASON = {
     "fr": {"non_rattache": "écriture rattachée à aucun champ", "etiquette_douteuse": "étiquette mal lue",
            "champ_nouveau": "champ inconnu du registre", "choix_nouveau": "case inconnue du registre",
-           "valeur_douteuse": "lecture incertaine"},
+           "valeur_douteuse": "lecture incertaine", "lieu_corrige": "nom de lieu corrigé (lu : voir « Lu sur la page »)",
+           "etiquette_manuscrite": "nom du champ écrit à la main"},
     "en": {"non_rattache": "handwriting not linked to a field", "etiquette_douteuse": "label misread",
            "champ_nouveau": "field unknown to the registry", "choix_nouveau": "checkbox unknown to the registry",
-           "valeur_douteuse": "uncertain reading"},
+           "valeur_douteuse": "uncertain reading", "lieu_corrige": "place name corrected (see “Read on the page”)",
+           "etiquette_manuscrite": "field name handwritten"},
 }
 
 # Messages du pipeline (écrits en français) -> anglais.

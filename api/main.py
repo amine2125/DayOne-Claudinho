@@ -11,14 +11,18 @@ Puis http://localhost:8000/docs pour essayer les routes.
 Sans PaddleOCR ni Ollama sur la machine : DAYONE_DEMO_EXTRACT=1 rejoue des sorties enregistrées.
 """
 
+import hmac
 import importlib.util
 import json
+import os
+import re
 import threading
 from contextlib import asynccontextmanager
 from typing import Literal
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Response, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from api import store
@@ -40,7 +44,27 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="DayOne — lecture du registre", version="1.1.0", lifespan=lifespan)
 
+# Clé de l'API (DAYONE_API_KEY, créée par DayOne.command). Sans clé configurée : aucune vérification.
+# Avec : toute route l'exige (« Authorization: Bearer <clé> »), sauf /health et la lecture du tableau
+# de bord (instantané, images déjà masquées) depuis cette machine même.
+API_KEY = os.environ.get("DAYONE_API_KEY", "").strip()
+LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+LOCAL_READS = re.compile(r"^/api/(snapshot|pages/[^/]+/image)$")
+
+
+@app.middleware("http")
+async def require_key(request: Request, call_next):
+    if API_KEY and request.method != "OPTIONS" and request.url.path != "/health":
+        local_read = (request.method == "GET" and LOCAL_READS.match(request.url.path)
+                      and request.client is not None and request.client.host in LOOPBACK)
+        given = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+        if not local_read and not hmac.compare_digest(given.encode(), API_KEY.encode()):
+            return JSONResponse({"detail": "Clé d'API manquante ou fausse"}, status_code=401)
+    return await call_next(request)
+
+
 # Le tableau de bord web (web/) appelle cette API depuis le navigateur : seulement depuis cette machine.
+# (Ajouté après la clé : il l'enveloppe, donc les réponses 401 gardent leurs en-têtes CORS.)
 app.add_middleware(
     CORSMiddleware,
     allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
@@ -245,6 +269,24 @@ def update_field(record_id: str, page_index: int, key: str, body: FieldUpdate) -
         return store.set_field(record_id, page_index, key, body.by, body.value, body.status, body.confirm)
     except KeyError as e:
         raise HTTPException(404, f"Champ ou page introuvable : {e}") from e
+
+
+class NewField(BaseModel):
+    by: str
+    label: str
+    value: str = ""
+
+
+@app.post("/api/records/{record_id}/pages/{page_index}/fields", status_code=201)
+def add_field(record_id: str, page_index: int, body: NewField) -> dict:
+    """Ajouter un champ oublié par la lecture (étiquette + valeur tapées par la sage-femme)."""
+    _record_or_404(record_id)
+    try:
+        return store.add_field(record_id, page_index, body.label, body.value, body.by)
+    except KeyError as e:
+        raise HTTPException(404, f"Page introuvable : {e}") from e
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
 
 
 @app.post("/api/records/{record_id}/validate")

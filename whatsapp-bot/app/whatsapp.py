@@ -149,6 +149,47 @@ async def send_buttons(to: str, body: str, buttons: list[tuple[str, str]]) -> No
     logger.info("Buttons sent successfully to %s", mask_phone(to))
 
 
+async def send_list(to: str, body: str, button: str, rows: list[tuple[str, str]]) -> None:
+    """Send a list message: a button that opens up to 10 clickable rows.
+
+    Le clic revient dans le webhook comme un message `interactive` (list_reply) portant l'id de la ligne.
+
+    Args:
+        to: Destination WhatsApp phone number.
+        body: Message text (1024 characters max).
+        button: Label of the button that opens the list (20 characters max).
+        rows: (id, title) pairs, 10 at most; title is 24 characters max.
+    """
+    settings = get_settings()
+    url = f"{settings.graph_api_url}/{settings.PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "interactive",
+        "interactive": {
+            "type": "list",
+            "body": {"text": body[:1024]},
+            "action": {
+                "button": button[:20],
+                "sections": [{"title": "Options", "rows": [
+                    {"id": rid, "title": title[:24]} for rid, title in rows[:10]
+                ]}],
+            },
+        },
+    }
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        if response.is_error:
+            logger.error("Meta send error %s: %s", response.status_code, response.text[:300])
+        response.raise_for_status()
+    logger.info("List sent successfully to %s", mask_phone(to))
+
+
 async def mark_as_read(message_id: str) -> None:
     """Mark an incoming WhatsApp message as read.
 

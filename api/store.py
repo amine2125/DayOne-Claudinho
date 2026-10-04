@@ -34,7 +34,7 @@ from cryptography.fernet import Fernet
 from dayone import page as page_image
 from dayone import privacy
 from dayone.dataset import ROOT
-from dayone.normalize import fold
+from dayone.normalize import fold, infer_kind, parse, special_word
 from dayone.privacy import is_record_label
 from dayone.schema import REFERENCE_PAGE_TYPES, reference_fields
 
@@ -489,6 +489,41 @@ def set_field(record_id: str, page_index: int, key: str, by: str,
         f["history"].append({"at": now(), "by": by, "origin": f["origin"], "value": f["value"], "status": f["status"]})
         _save_fields(c, row["id"], fields)
         return f
+
+
+ADDED_SECTION = "Ajoutés par la sage-femme"
+
+
+def add_field(record_id: str, page_index: int, label: str, text: str, by: str) -> dict:
+    """Champ oublié par la lecture, ajouté par la sage-femme (étiquette + valeur). Jamais une donnée personnelle."""
+    label = " ".join(label.split())[:80]
+    text = text.strip()[:120]
+    if len(label) < 2:
+        raise ValueError("Nom du champ trop court")
+    if privacy.is_personal(label, text):
+        raise ValueError("Donnée personnelle (nom, CIN, téléphone, adresse) : elle n'est jamais enregistrée")
+    kind = infer_kind(label)
+    if not text or text == "-":
+        value, status = None, "NOT_PROVIDED"
+    elif special_word(text) == "unknown":
+        value, status = None, "UNKNOWN"
+    else:
+        value, _ = parse(kind, text)
+        value, status = (value if value is not None else text), "KNOWN"
+    with db() as c:
+        row = _page(c, record_id, page_index)
+        fields = _load_fields(row)
+        key = re.sub(r"[^a-z0-9]+", "_", fold(label)).strip("_")[:60] or "champ"
+        while key in fields:
+            key += "_"
+        at = now()
+        fields[key] = {
+            "key": key, "label": label, "kind": kind, "section": ADDED_SECTION,
+            "value": value, "status": status, "confidence": 1.0, "origin": "MANUAL", "method": "humain",
+            "page": page_index, "history": [{"at": at, "by": by, "origin": "MANUAL", "value": value, "status": status}],
+        }
+        _save_fields(c, row["id"], fields)
+        return fields[key]
 
 
 def validate(record_id: str) -> None:

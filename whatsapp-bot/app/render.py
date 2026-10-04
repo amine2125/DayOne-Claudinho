@@ -42,6 +42,8 @@ REASONS = {
     "champ_nouveau": "champ inconnu du registre",
     "choix_nouveau": "case inconnue du registre",
     "valeur_douteuse": "lecture incertaine",
+    "lieu_corrige": "nom de lieu corrigé",
+    "etiquette_manuscrite": "nom du champ écrit à la main",
 }
 LINK_REASONS = {
     "SAME_CODE": "même code",
@@ -166,17 +168,35 @@ def field_line(nf: NumberedField) -> str:
     return f"{nf.number}. {flag}{nf.label} : *{format_value(nf.kind, nf.field)}*{edited}"
 
 
+def _cell(nf: NumberedField) -> str:
+    """Une case de tableau dans sa rangée : « 5. Famille de la femme *aucun* »."""
+    flag = "⚠️ " if nf.field.get("status") in UNCERTAIN_STATUSES else ""
+    edited = " ✏️" if nf.field.get("origin") in ("CORRECTED", "MANUAL") else ""
+    column = nf.label.split(" | ", 1)[1]
+    return f"{nf.number}. {flag}{column} *{format_value(nf.kind, nf.field)}*{edited}"
+
+
 def values_text(page: dict, include_empty: bool = False) -> str:
-    """Liste numérotée des valeurs, regroupées par section."""
+    """Liste numérotée des valeurs, regroupées par section. Les cases d'un tableau (« HTA | Famille de la
+    femme ») tiennent sur une ligne par rangée : « HTA : 5. Famille de la femme *aucun* · 6. Mari *aucun* »."""
     lines, current = [], None
-    for nf in numbered_fields(page):
-        if not include_empty and nf.field.get("status") not in SHOWN_STATUSES:
-            continue
+    shown = [nf for nf in numbered_fields(page) if include_empty or nf.field.get("status") in SHOWN_STATUSES]
+    i = 0
+    while i < len(shown):
+        nf = shown[i]
         section = nf.field.get("section")
         if section and section != current:
             current = section
             lines.append(f"\n*{section}*")
-        lines.append(field_line(nf))
+        row = nf.label.split(" | ", 1)[0] if " | " in nf.label else None
+        group = [nf]
+        while row and i + len(group) < len(shown):
+            nxt = shown[i + len(group)]
+            if nxt.field.get("section") != section or not nxt.label.startswith(row + " | "):
+                break
+            group.append(nxt)
+        lines.append(f"{row} : " + " · ".join(_cell(g) for g in group) if len(group) > 1 else field_line(nf))
+        i += len(group)
     return "\n".join(lines).strip() or "Aucune valeur lue sur cette page."
 
 
@@ -190,15 +210,7 @@ def review_text(page: dict, position: int, total: int) -> str:
         lines.append(f"⚠️ {len(doubts)} à vérifier : {names}{more}")
     else:
         lines.append("✅ Aucune incertitude restante.")
-    lines += [
-        "",
-        "Que voulez-vous faire ?",
-        "1️⃣ Confirmer la page",
-        "2️⃣ Corriger un champ",
-        "3️⃣ Voir les valeurs",
-        "4️⃣ Reprendre la photo",
-        "👉 Répondez avec le chiffre.",
-    ]
+    lines += ["", "👇 Que voulez-vous faire ?"]
     return "\n".join(lines)
 
 
@@ -211,9 +223,7 @@ def confirm_uncertain_text(page: dict) -> str:
     )
     return (
         f"⚠️ *{len(doubts)} valeur(s) restent à vérifier :*\n{listed}\n\n"
-        "1️⃣ Je les ai vérifiées sur le registre : confirmer telles quelles\n"
-        "2️⃣ Corriger un champ\n"
-        "👉 Répondez avec le chiffre."
+        "👇 Vous les avez vérifiées sur le registre ? Confirmez-les telles quelles, ou corrigez."
     )
 
 
@@ -222,11 +232,8 @@ def failed_page_text(page: dict, position: int, total: int, can_drop: bool) -> s
         f"❌ *Page {position + 1}/{total} · lecture impossible*",
         page.get("error") or "Raison inconnue.",
         "",
-        "4️⃣ Reprendre la photo",
+        "👇 Reprendre la photo" + (", ou ignorer cette page ?" if can_drop else " ?"),
     ]
-    if can_drop:
-        lines.append("5️⃣ Ignorer cette page")
-    lines.append("👉 Répondez avec le chiffre.")
     return "\n".join(lines)
 
 
@@ -237,19 +244,13 @@ def _num(i: int) -> str:
 
 def link_text(code: str, candidates: list[dict]) -> str:
     if not candidates:
-        return (
-            f"👤 Aucune patiente suivie avec le code *{code}*.\n\n"
-            "1️⃣ Créer la patiente\n"
-            "2️⃣ Je ne sais pas (à vérifier plus tard)\n"
-            "👉 Répondez avec le chiffre."
-        )
+        return (f"👤 Aucune patiente suivie avec le code *{code}*.\n\n"
+                "👇 Créer la patiente, ou décider plus tard sur le tableau de bord ?")
     lines = [f"👤 *Ce registre ({code}) est-il celui d'une patiente déjà suivie ?*", ""]
-    for i, cand in enumerate(candidates, start=1):
+    for i, cand in enumerate(candidates[:8], start=1):
         why = ", ".join(LINK_REASONS.get(r["kind"], r["kind"]) for r in cand.get("reasons", []))
         lines.append(f"{_num(i)} {cand['code']}" + (f" · {why}" if why else ""))
-    n = len(candidates)
-    lines += [f"{_num(n + 1)} Non, nouvelle patiente", f"{_num(n + 2)} Je ne sais pas (à vérifier plus tard)",
-              "👉 Répondez avec le chiffre."]
+    lines += ["", "👇 Choisissez la patiente, une nouvelle patiente, ou « Je ne sais pas »."]
     return "\n".join(lines)
 
 

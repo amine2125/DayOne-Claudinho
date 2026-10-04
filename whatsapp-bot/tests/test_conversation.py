@@ -35,6 +35,15 @@ class FakeWhatsApp:
         self.sent.append(body)
         self.buttons.append([bid for bid, _ in buttons])
 
+    async def send_list(self, to, body, button, rows):
+        self.sent.append(body)
+        self.buttons.append([rid for rid, _ in rows])
+
+    @property
+    def menu(self) -> list[str]:
+        """Ids des choix cliquables du dernier menu envoyé."""
+        return self.buttons[-1] if self.buttons else []
+
     async def download_media(self, media_id):
         return media_id.encode(), "image/jpeg"   # octets = id du média : choisit la sortie démo
 
@@ -64,7 +73,7 @@ def wa(monkeypatch, tmp_path):
         transport=httpx.ASGITransport(app=api_main.app), base_url="http://dayone"))
     monkeypatch.setattr(backend, "POLL_SECONDS", 0)
     fake = FakeWhatsApp()
-    for name in ("send_text", "send_buttons", "download_media"):
+    for name in ("send_text", "send_buttons", "send_list", "download_media"):
         monkeypatch.setattr(conversation, name, getattr(fake, name))
     conversation._sessions.clear()
     return fake
@@ -133,7 +142,7 @@ async def test_photos_grouped_then_code_then_reading(wa):
     await text("$$$")
     assert "Ce code n'est pas valide" in wa.last
     await text("amn-27")
-    assert "Page 1/2" in wa.last and "1️⃣ Confirmer" in wa.last
+    assert "Page 1/2" in wa.last and wa.menu == ["1", "2", "3", "4", "5"]
     rec = db_record()                             # le dossier existe dans la base du tableau de bord
     assert rec["state"] == "NEEDS_REVIEW" and rec["patientCode"] == "AMN-27" and len(rec["pages"]) == 2
     assert rec["midwifeId"].startswith("wa-") and PHONE not in rec["midwifeId"]
@@ -200,7 +209,7 @@ async def test_invalid_option_is_refused_and_menu_resent(wa, answer):
     start = len(wa.sent)
     await text(answer)
     assert "n'est pas une des options" in wa.since(start)
-    assert "1️⃣ Confirmer" in wa.last and state() == conversation.State.REVIEW
+    assert wa.menu == ["1", "2", "3", "4", "5"] and state() == conversation.State.REVIEW
 
 
 @pytest.mark.asyncio
@@ -220,7 +229,7 @@ async def test_correction_is_saved_in_the_api(wa):
     page = session().page
     nf = next(f for f in render.numbered_fields(page) if f.kind == "integer")
     await text("2")
-    assert "Quel champ corriger" in wa.last
+    assert "Quel champ corriger" in wa.sent[-2] and wa.menu[-1] == "0"   # liste cliquable : champs, puis retour
     await text("9999")
     assert "n'est pas un numéro de champ" in wa.last
     await text(str(nf.number))
@@ -240,7 +249,7 @@ async def test_retour_leaves_value_entry(wa):
     await text("2")
     await text("1")
     await text("retour")
-    assert state() == conversation.State.REVIEW and "1️⃣ Confirmer" in wa.last
+    assert state() == conversation.State.REVIEW and wa.menu == ["1", "2", "3", "4", "5"]
 
 
 # --- Confirmation, validation, patiente ---
@@ -330,7 +339,7 @@ async def test_only_page_unreadable_must_be_retaken(wa, monkeypatch):
     assert "Répondez 4" in wa.sent[-2]
     await text("4")
     await photo("page-a")
-    assert "Page 1/1" in wa.last and "1️⃣ Confirmer" in wa.last
+    assert "Page 1/1" in wa.last and wa.menu == ["1", "2", "3", "4", "5"]
 
 
 @pytest.mark.asyncio
@@ -393,10 +402,39 @@ def test_format_value():
     assert render.format_value("text", {"value": None, "status": "ILLEGIBLE"}) == "illisible"
 
 
-def test_link_text_numbers_beyond_nine():
+def test_link_text_shows_at_most_eight_patients():
+    # Liste cliquable WhatsApp : 10 lignes au plus = 8 patientes + « nouvelle » + « je ne sais pas »
     cands = [{"patientId": f"p{i}", "code": f"C{i}", "reasons": [{"kind": "SAME_CODE"}]} for i in range(9)]
     out = render.link_text("C1", cands)
-    assert "10. Non, nouvelle patiente" in out and "11. Je ne sais pas" in out
+    assert "8️⃣ C7" in out and "C8" not in out
+
+
+@pytest.mark.asyncio
+async def test_add_missing_field(wa):
+    await start_review(wa)
+    before = len(session().page["fields"])
+    await text("5")
+    assert state() == conversation.State.ADD_LABEL and "Nom du champ" in wa.last
+    await text("Groupe sanguin")
+    assert state() == conversation.State.ADD_VALUE
+    await text("O+")
+    assert "Champ ajouté" in wa.sent[-2] and "Groupe sanguin" in wa.sent[-2]
+    fields = session().page["fields"]
+    assert len(fields) == before + 1
+    added = next(f for f in fields.values() if f["label"] == "Groupe sanguin")
+    assert added["value"] == "O+" and added["origin"] == "MANUAL" and added["status"] == "KNOWN"
+    assert state() == conversation.State.REVIEW and wa.menu == ["1", "2", "3", "4", "5"]
+
+
+@pytest.mark.asyncio
+async def test_added_personal_field_is_refused(wa):
+    await start_review(wa)
+    before = len(session().page["fields"])
+    await text("5")
+    await text("Nom du mari")
+    await text("Ahmed")
+    assert "Donnée personnelle" in wa.sent[-2] and len(session().page["fields"]) == before
+    assert state() == conversation.State.REVIEW
 
 
 def test_midwife_id_hides_phone(monkeypatch):
@@ -404,3 +442,15 @@ def test_midwife_id_hides_phone(monkeypatch):
     get_settings.cache_clear()
     mid = backend.midwife_id(PHONE)
     assert mid.startswith("wa-") and PHONE not in mid and mid == backend.midwife_id(PHONE)
+
+
+def test_table_cells_share_one_line_per_row():
+    page = {"fields": {
+        "a": {"label": "HTA | Famille de la femme", "kind": "text", "section": "Antécédents", "value": "aucun", "status": "KNOWN"},
+        "b": {"label": "HTA | Mari/famille", "kind": "text", "section": "Antécédents", "value": "Père", "status": "NEEDS_REVIEW"},
+        "c": {"label": "Diabète | Famille de la femme", "kind": "text", "section": "Antécédents", "value": "aucun", "status": "KNOWN"},
+        "d": {"label": "Age", "kind": "integer", "section": "Antécédents", "value": 31, "status": "KNOWN"},
+    }}
+    out = render.values_text(page)
+    assert "HTA : 1. Famille de la femme *aucun* · 2. ⚠️ Mari/famille *Père*" in out
+    assert "3. Diabète | Famille de la femme : *aucun*" in out and "4. Age : *31*" in out   # case seule : ligne normale

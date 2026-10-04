@@ -113,6 +113,11 @@ async def set_field(record_id: str, index: int, key: str, phone: str, value, sta
     return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields/{key}", json=body)
 
 
+async def add_field(record_id: str, index: int, phone: str, label: str, value: str) -> dict:
+    body = {"by": midwife_id(phone), "label": label, "value": value}
+    return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields", json=body)
+
+
 async def confirm_field(record_id: str, index: int, key: str, phone: str) -> dict:
     body = {"by": midwife_id(phone), "confirm": True}
     return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields/{key}", json=body)
