@@ -22,3 +22,6 @@ __pycache__/
 # Web UI
 web/node_modules/
 web/dist/
+
+# Secrets
+.env
