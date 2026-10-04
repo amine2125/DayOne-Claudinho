@@ -39,7 +39,7 @@ sans gabarit : elle lit une fiche qu'elle n'a jamais vue, en français, en arabe
 
 | Accès | Comment |
 |---|---|
-| Tableau de bord | https://roommates-shepherd-knows-mailing.trycloudflare.com/ |
+| Tableau de bord | https://collectables-paintball-slope-faq.trycloudflare.com |
 | Agent WhatsApp (bac à sable Vonage) | Depuis votre téléphone, envoyer sur WhatsApp le message `Join wool sweat` au **+1 415 738 6102**. Ensuite, envoyer `/aide`, ou directement la photo d'une page du registre |
 
 Le message `Join wool sweat` inscrit votre numéro dans le bac à sable Vonage : sans lui, le bot ne peut pas vous
