@@ -1,6 +1,6 @@
 # Python 3.12 — installation : python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # (ou : uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt)
-# Ollama s'installe à part, puis : ollama pull qwen3-vl:2b-instruct
+# Ollama s'installe à part, puis : ollama pull qwen3-vl:4b-instruct
 numpy==2.3.5
 ollama==0.6.3
 opencv-python-headless==5.0.0.93

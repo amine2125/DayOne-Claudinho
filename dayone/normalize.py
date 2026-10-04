@@ -9,15 +9,22 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-NONE_WORDS = {"ras", "r a s", "aucun", "aucune", "neant", "rien", "pas de", "non"}
-UNKNOWN_WORDS = {"?", "??", "inconnu", "inconnue", "nsp", "ne sait pas", "non connu", "nc"}
-ILLEGIBLE_WORDS = {"illisible"}
+NONE_WORDS = {"ras", "r a s", "aucun", "aucune", "neant", "rien", "pas de", "non",
+              "none", "nil", "no", "لا شيء", "لا يوجد", "لا"}
+UNKNOWN_WORDS = {"?", "??", "inconnu", "inconnue", "nsp", "ne sait pas", "non connu", "nc",
+                 "unknown", "غير معروف", "مجهول"}
+ILLEGIBLE_WORDS = {"illisible", "illegible", "غير مقروء"}
+
+
+ARABIC = re.compile(r"[\u0621-\u064a]")
 
 
 def fold(text: str) -> str:
-    """Minuscules, sans accents, ponctuation réduite à des espaces."""
-    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode()
-    t = re.sub(r"[^a-z0-9/?]+", " ", t.lower())
+    """Minuscules, sans accents (ni voyelles arabes), ponctuation réduite à des espaces. Lettres arabes gardées."""
+    t = text.replace("œ", "oe").replace("Œ", "Oe").replace("æ", "ae").replace("Æ", "Ae")
+    t = "".join(c for c in unicodedata.normalize("NFKD", t) if not unicodedata.combining(c))
+    t = "".join(c for c in t if c.isascii() or ARABIC.match(c))
+    t = re.sub(r"[^a-z0-9/?\u0621-\u064a]+", " ", t.lower())
     return re.sub(r"\s+", " ", t).strip()
 
 
@@ -60,41 +67,25 @@ def _lexicon_patterns() -> list[tuple[str, re.Pattern]]:
 
 
 def restore_missing_letters(text: str) -> str | None:
-    """« Commer ante » -> « Commerçante » si un seul mot du lexique correspond, sinon None.
+    """Remet les lettres accentuées absentes de la page, mot par mot ou expression par expression,
+    grâce au lexique : « Commer ante » -> « Commerçante », « Asthme l ger » -> « Asthme léger ».
 
     Seules les lettres accentuées absentes sont remises : toutes les autres lettres doivent être identiques.
+    Renvoie None si rien n'a changé.
     """
     t = re.sub(r"\s+", " ", text.strip())
-    hits = {w for w, pat in _lexicon_patterns() if pat.fullmatch(t)}
-    if len(hits) != 1:
-        return None
-    word = hits.pop()
-    return None if word.lower() == t.lower() else word
-
-
-COMMON_WORDS = ("ras", "aucun", "aucune")
-
-
-def _distance(a: str, b: str) -> int:
-    prev = list(range(len(b) + 1))
-    for i, ca in enumerate(a, 1):
-        cur = [i]
-        for j, cb in enumerate(b, 1):
-            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
-        prev = cur
-    return prev[-1]
-
-
-def looks_doubtful(text: str) -> bool:
-    """Lecture suspecte même avec un bon score : presque « RAS » (ex. « KAS »), ou caractères parasites."""
-    t = fold(text)
-    if not t:
-        return True
-    if any(_distance(t, w) == 1 for w in COMMON_WORDS) and t not in COMMON_WORDS:
-        return True
-    raw = text.strip()
-    odd = sum(1 for c in raw if not (c.isalnum() or c in " /.,'-°:()"))
-    return odd > 0 or (len(raw) <= 2 and not raw.isdigit() and fold(raw) not in ("f", "m"))
+    out = t
+    # Expressions les plus longues d'abord ; un passage déjà corrigé n'est pas retouché.
+    for word, pat in sorted(_lexicon_patterns(), key=lambda wp: -len(wp[0])):
+        bounded = re.compile(rf"(?<![\w]){pat.pattern}(?![\w])", re.IGNORECASE)
+        def repl(m, word=word):
+            found = m.group(0)
+            if found.lower() == word.lower():
+                return found
+            first = word[:1].upper() if found[:1].isupper() else word[:1].lower()   # casse de la page
+            return first + word[1:]
+        out = bounded.sub(repl, out)
+    return None if out == t else out
 
 
 def parse(kind: str, text: str):
@@ -170,3 +161,23 @@ def comparable(kind: str, value) -> str:
     if isinstance(value, float) and value == int(value):
         value = int(value)
     return fold(str(value))
+
+
+# Type d'un champ deviné d'après son étiquette (fiche inconnue). Premier motif trouvé = type retenu.
+KIND_RULES = [   # français, anglais, arabe
+    ("date", r"\bdate\b|\ble\b|\bddr\b|\bne[e]? le\b|\bon\b|تاريخ"),
+    ("weeks", r"\bsa\b|age gestationnel|terme|gestational age|\bweeks\b|اسبوع|الاسابيع"),
+    ("weight", r"\bpoids\b|\bweight\b|وزن|الوزن"),
+    ("length", r"perimetre|taille|\bhu\b|hauteur uterine|circumference|height|length|محيط|طول"),
+    ("sex", r"\bsexe\b|\bsex\b|gender|الجنس"),
+    ("integer", r"\bage\b|gestation|gestite|parite|nombre|\bnb\b|enfants vivants|number of|gravidity|parity"
+                r"|العمر|السن|عدد"),
+]
+
+
+def infer_kind(label: str) -> str:
+    t = fold(label)
+    for kind, pattern in KIND_RULES:
+        if re.search(pattern, t):
+            return kind
+    return "text"

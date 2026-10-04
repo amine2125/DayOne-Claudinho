@@ -10,7 +10,7 @@ import sys
 
 from dayone.dataset import PAGES_PER_PATIENT, PAGE_TYPES
 from dayone.evaluate import annotation_path, write_template
-from dayone.schema import V1_PAGE_TYPES
+from dayone.schema import REFERENCE_PAGE_TYPES
 
 DEV_PATIENTS = (1, 2)
 TEST_PATIENTS = (9, 10)
@@ -22,7 +22,7 @@ def main() -> int:
     args = ap.parse_args()
 
     patients = DEV_PATIENTS + (TEST_PATIENTS if args.final else ())
-    positions = {pos: pt for pos, pt in PAGE_TYPES.items() if pt in V1_PAGE_TYPES}
+    positions = {pos: pt for pos, pt in PAGE_TYPES.items() if pt in REFERENCE_PAGE_TYPES}
     for patient in patients:
         for pos, page_type in positions.items():
             page = (patient - 1) * PAGES_PER_PATIENT + pos

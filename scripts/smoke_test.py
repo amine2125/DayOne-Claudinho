@@ -1,7 +1,7 @@
 """Test de fumée : PaddleOCR puis Ollama sur une page dev, l'un après l'autre.
 
 N'affiche jamais le texte lu : seulement temps, RAM, nombre de lignes et titre trouvé oui/non.
-Usage : python -m scripts.smoke_test [--model qwen3-vl:2b-instruct]
+Usage : python -m scripts.smoke_test [--model qwen3-vl:4b-instruct]
 """
 
 import argparse
@@ -84,7 +84,7 @@ def run_ollama(image: str, model: str) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default="qwen3-vl:2b-instruct")
+    ap.add_argument("--model", default="qwen3-vl:4b-instruct")
     args = ap.parse_args()
 
     row = next(r for r in load_index("dev") if r["page_type"] == PAGE_TYPE)

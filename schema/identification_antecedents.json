@@ -1,119 +1,48 @@
 {
  "page_type": "identification_antecedents",
  "title": "Identification et antécédents",
- "reference_page": 2,
- "image_size": [
-  1654,
-  2339
- ],
- "excluded_zones": {
-  "cin": [
-   880,
-   195,
-   1400,
-   262
-  ],
-  "adresse": [
-   225,
-   318,
-   720,
-   385
-  ],
-  "telephone": [
-   960,
-   318,
-   1400,
-   388
-  ],
-  "nom_mari": [
-   270,
-   385,
-   730,
-   448
-  ]
- },
  "fields": [
   {
    "id": "age",
-   "label": "Âge",
+   "label": "Age",
    "group": "Identification",
-   "kind": "integer",
-   "zone": [
-    200,
-    200,
-    640,
-    262
-   ]
+   "kind": "integer"
   },
   {
    "id": "niveau_instruction",
    "label": "Niveau d'instruction",
    "group": "Identification",
-   "kind": "text",
-   "zone": [
-    355,
-    262,
-    790,
-    325
-   ]
+   "kind": "text"
   },
   {
    "id": "profession_femme",
    "label": "Profession (femme)",
    "group": "Identification",
-   "kind": "text",
-   "zone": [
-    960,
-    265,
-    1400,
-    328
-   ]
+   "kind": "text"
   },
   {
    "id": "profession_mari",
    "label": "Profession (mari)",
    "group": "Identification",
-   "kind": "text",
-   "zone": [
-    960,
-    388,
-    1400,
-    450
-   ]
+   "kind": "text"
   },
   {
    "id": "consanguinite",
    "label": "Consanguinité",
    "group": "Identification",
-   "kind": "checkbox",
-   "box": [
-    149,
-    493,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "grossesse_desiree",
    "label": "Grossesse désirée",
    "group": "Identification",
-   "kind": "checkbox",
-   "box": [
-    848,
-    496,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "hered_hta_femme",
    "label": "HTA — famille de la femme",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    369,
-    651,
-    579,
-    695
-   ],
    "table": true
   },
   {
@@ -121,12 +50,6 @@
    "label": "HTA — mari/famille",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    591,
-    651,
-    801,
-    695
-   ],
    "table": true
   },
   {
@@ -134,12 +57,6 @@
    "label": "Diabète — famille de la femme",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    369,
-    707,
-    579,
-    750
-   ],
    "table": true
   },
   {
@@ -147,12 +64,6 @@
    "label": "Diabète — mari/famille",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    591,
-    707,
-    801,
-    750
-   ],
    "table": true
   },
   {
@@ -160,12 +71,6 @@
    "label": "Maladies héréditaires — famille de la femme",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    369,
-    762,
-    579,
-    806
-   ],
    "table": true
   },
   {
@@ -173,12 +78,6 @@
    "label": "Maladies héréditaires — mari/famille",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    591,
-    762,
-    801,
-    806
-   ],
    "table": true
   },
   {
@@ -186,12 +85,6 @@
    "label": "Malformations — famille de la femme",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    369,
-    818,
-    579,
-    862
-   ],
    "table": true
   },
   {
@@ -199,12 +92,6 @@
    "label": "Malformations — mari/famille",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    591,
-    818,
-    801,
-    862
-   ],
    "table": true
   },
   {
@@ -212,12 +99,6 @@
    "label": "Allergie(s) — famille de la femme",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    369,
-    874,
-    579,
-    917
-   ],
    "table": true
   },
   {
@@ -225,61 +106,31 @@
    "label": "Allergie(s) — mari/famille",
    "group": "Antécédents héréditaires et familiaux",
    "kind": "text",
-   "zone": [
-    591,
-    874,
-    801,
-    917
-   ],
    "table": true
   },
   {
    "id": "atcd_medicaux",
    "label": "Médicaux",
    "group": "Antécédents de la femme",
-   "kind": "text",
-   "zone": [
-    868,
-    640,
-    1037,
-    922
-   ]
+   "kind": "text"
   },
   {
    "id": "atcd_chirurgicaux",
    "label": "Chirurgicaux",
    "group": "Antécédents de la femme",
-   "kind": "text",
-   "zone": [
-    1049,
-    640,
-    1259,
-    922
-   ]
+   "kind": "text"
   },
   {
    "id": "atcd_gynecologiques",
    "label": "Gynécologiques",
    "group": "Antécédents de la femme",
-   "kind": "text",
-   "zone": [
-    1271,
-    640,
-    1537,
-    922
-   ]
+   "kind": "text"
   },
   {
    "id": "obst_autres_precision",
-   "label": "Autres anomalies — précision",
+   "label": "Autres à préciser",
    "group": "Antécédents obstétricaux",
    "kind": "text",
-   "zone": [
-    285,
-    1216,
-    410,
-    1268
-   ],
    "table": true
   },
   {
@@ -287,12 +138,6 @@
    "label": "Avortement — nombre",
    "group": "Antécédents obstétricaux",
    "kind": "integer",
-   "zone": [
-    422,
-    1051,
-    604,
-    1095
-   ],
    "table": true
   },
   {
@@ -300,12 +145,6 @@
    "label": "Avortement — date",
    "group": "Antécédents obstétricaux",
    "kind": "date",
-   "zone": [
-    616,
-    1051,
-    910,
-    1095
-   ],
    "table": true
   },
   {
@@ -313,12 +152,6 @@
    "label": "Avortement — lieu",
    "group": "Antécédents obstétricaux",
    "kind": "text",
-   "zone": [
-    922,
-    1051,
-    1160,
-    1095
-   ],
    "table": true
   },
   {
@@ -326,12 +159,6 @@
    "label": "Avortement — âge gestationnel (SA)",
    "group": "Antécédents obstétricaux",
    "kind": "weeks",
-   "zone": [
-    1172,
-    1051,
-    1534,
-    1095
-   ],
    "table": true
   },
   {
@@ -339,12 +166,6 @@
    "label": "Accouchement prématuré — nombre",
    "group": "Antécédents obstétricaux",
    "kind": "integer",
-   "zone": [
-    422,
-    1107,
-    604,
-    1150
-   ],
    "table": true
   },
   {
@@ -352,12 +173,6 @@
    "label": "Accouchement prématuré — date",
    "group": "Antécédents obstétricaux",
    "kind": "date",
-   "zone": [
-    616,
-    1107,
-    910,
-    1150
-   ],
    "table": true
   },
   {
@@ -365,12 +180,6 @@
    "label": "Accouchement prématuré — lieu",
    "group": "Antécédents obstétricaux",
    "kind": "text",
-   "zone": [
-    922,
-    1107,
-    1160,
-    1150
-   ],
    "table": true
   },
   {
@@ -378,12 +187,6 @@
    "label": "Accouchement prématuré — âge gestationnel (SA)",
    "group": "Antécédents obstétricaux",
    "kind": "weeks",
-   "zone": [
-    1172,
-    1107,
-    1534,
-    1150
-   ],
    "table": true
   },
   {
@@ -391,12 +194,6 @@
    "label": "Mort fœtale in utéro — nombre",
    "group": "Antécédents obstétricaux",
    "kind": "integer",
-   "zone": [
-    422,
-    1162,
-    604,
-    1206
-   ],
    "table": true
   },
   {
@@ -404,12 +201,6 @@
    "label": "Mort fœtale in utéro — date",
    "group": "Antécédents obstétricaux",
    "kind": "date",
-   "zone": [
-    616,
-    1162,
-    910,
-    1206
-   ],
    "table": true
   },
   {
@@ -417,12 +208,6 @@
    "label": "Mort fœtale in utéro — lieu",
    "group": "Antécédents obstétricaux",
    "kind": "text",
-   "zone": [
-    922,
-    1162,
-    1160,
-    1206
-   ],
    "table": true
   },
   {
@@ -430,12 +215,6 @@
    "label": "Mort fœtale in utéro — âge gestationnel (SA)",
    "group": "Antécédents obstétricaux",
    "kind": "weeks",
-   "zone": [
-    1172,
-    1162,
-    1534,
-    1206
-   ],
    "table": true
   },
   {
@@ -443,12 +222,6 @@
    "label": "Autres — nombre",
    "group": "Antécédents obstétricaux",
    "kind": "integer",
-   "zone": [
-    422,
-    1218,
-    604,
-    1267
-   ],
    "table": true
   },
   {
@@ -456,12 +229,6 @@
    "label": "Autres — date",
    "group": "Antécédents obstétricaux",
    "kind": "date",
-   "zone": [
-    616,
-    1218,
-    910,
-    1267
-   ],
    "table": true
   },
   {
@@ -469,12 +236,6 @@
    "label": "Autres — lieu",
    "group": "Antécédents obstétricaux",
    "kind": "text",
-   "zone": [
-    922,
-    1218,
-    1160,
-    1267
-   ],
    "table": true
   },
   {
@@ -482,51 +243,27 @@
    "label": "Autres — âge gestationnel (SA)",
    "group": "Antécédents obstétricaux",
    "kind": "weeks",
-   "zone": [
-    1172,
-    1218,
-    1534,
-    1267
-   ],
    "table": true
   },
   {
    "id": "acc1_date",
-   "label": "Accouch. 1 — Date",
+   "label": "Date — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "date",
-   "zone": [
-    418,
-    1468,
-    631,
-    1534
-   ],
    "table": true
   },
   {
    "id": "acc1_modalite",
-   "label": "Accouch. 1 — Modalité d'extraction",
+   "label": "Modalité d'extraction — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    418,
-    1546,
-    631,
-    1612
-   ],
    "table": true
   },
   {
    "id": "acc1_indication_cesarienne",
-   "label": "Accouch. 1 — Si césarienne : indication",
+   "label": "Si césarienne : indication — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    418,
-    1624,
-    631,
-    1689
-   ],
    "table": true,
    "applicable_if": {
     "text_matches": {
@@ -537,80 +274,44 @@
   },
   {
    "id": "acc1_complication",
-   "label": "Accouch. 1 — Complication (type)",
+   "label": "Complication (type) — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    418,
-    1701,
-    631,
-    1767
-   ],
    "table": true
   },
   {
    "id": "acc1_poids",
-   "label": "Accouch. 1 — Poids nouveau-né",
+   "label": "Poids nouveau-né — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "weight",
-   "zone": [
-    418,
-    1779,
-    631,
-    1845
-   ],
    "table": true
   },
   {
    "id": "acc1_complication_nn",
-   "label": "Accouch. 1 — Complication nouveau-né (type)",
+   "label": "Complication nouveau-né (type) — Accouch. 1",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    418,
-    1857,
-    631,
-    1936
-   ],
    "table": true
   },
   {
    "id": "acc2_date",
-   "label": "Accouch. 2 — Date",
+   "label": "Date — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "date",
-   "zone": [
-    643,
-    1468,
-    856,
-    1534
-   ],
    "table": true
   },
   {
    "id": "acc2_modalite",
-   "label": "Accouch. 2 — Modalité d'extraction",
+   "label": "Modalité d'extraction — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    643,
-    1546,
-    856,
-    1612
-   ],
    "table": true
   },
   {
    "id": "acc2_indication_cesarienne",
-   "label": "Accouch. 2 — Si césarienne : indication",
+   "label": "Si césarienne : indication — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    643,
-    1624,
-    856,
-    1689
-   ],
    "table": true,
    "applicable_if": {
     "text_matches": {
@@ -621,80 +322,44 @@
   },
   {
    "id": "acc2_complication",
-   "label": "Accouch. 2 — Complication (type)",
+   "label": "Complication (type) — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    643,
-    1701,
-    856,
-    1767
-   ],
    "table": true
   },
   {
    "id": "acc2_poids",
-   "label": "Accouch. 2 — Poids nouveau-né",
+   "label": "Poids nouveau-né — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "weight",
-   "zone": [
-    643,
-    1779,
-    856,
-    1845
-   ],
    "table": true
   },
   {
    "id": "acc2_complication_nn",
-   "label": "Accouch. 2 — Complication nouveau-né (type)",
+   "label": "Complication nouveau-né (type) — Accouch. 2",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    643,
-    1857,
-    856,
-    1936
-   ],
    "table": true
   },
   {
    "id": "acc3_date",
-   "label": "Accouch. 3 — Date",
+   "label": "Date — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "date",
-   "zone": [
-    868,
-    1468,
-    1081,
-    1534
-   ],
    "table": true
   },
   {
    "id": "acc3_modalite",
-   "label": "Accouch. 3 — Modalité d'extraction",
+   "label": "Modalité d'extraction — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    868,
-    1546,
-    1081,
-    1612
-   ],
    "table": true
   },
   {
    "id": "acc3_indication_cesarienne",
-   "label": "Accouch. 3 — Si césarienne : indication",
+   "label": "Si césarienne : indication — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    868,
-    1624,
-    1081,
-    1689
-   ],
    "table": true,
    "applicable_if": {
     "text_matches": {
@@ -705,80 +370,44 @@
   },
   {
    "id": "acc3_complication",
-   "label": "Accouch. 3 — Complication (type)",
+   "label": "Complication (type) — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    868,
-    1701,
-    1081,
-    1767
-   ],
    "table": true
   },
   {
    "id": "acc3_poids",
-   "label": "Accouch. 3 — Poids nouveau-né",
+   "label": "Poids nouveau-né — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "weight",
-   "zone": [
-    868,
-    1779,
-    1081,
-    1845
-   ],
    "table": true
   },
   {
    "id": "acc3_complication_nn",
-   "label": "Accouch. 3 — Complication nouveau-né (type)",
+   "label": "Complication nouveau-né (type) — Accouch. 3",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    868,
-    1857,
-    1081,
-    1936
-   ],
    "table": true
   },
   {
    "id": "acc4_date",
-   "label": "Accouch. 4 — Date",
+   "label": "Date — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "date",
-   "zone": [
-    1093,
-    1468,
-    1306,
-    1534
-   ],
    "table": true
   },
   {
    "id": "acc4_modalite",
-   "label": "Accouch. 4 — Modalité d'extraction",
+   "label": "Modalité d'extraction — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1093,
-    1546,
-    1306,
-    1612
-   ],
    "table": true
   },
   {
    "id": "acc4_indication_cesarienne",
-   "label": "Accouch. 4 — Si césarienne : indication",
+   "label": "Si césarienne : indication — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1093,
-    1624,
-    1306,
-    1689
-   ],
    "table": true,
    "applicable_if": {
     "text_matches": {
@@ -789,80 +418,44 @@
   },
   {
    "id": "acc4_complication",
-   "label": "Accouch. 4 — Complication (type)",
+   "label": "Complication (type) — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1093,
-    1701,
-    1306,
-    1767
-   ],
    "table": true
   },
   {
    "id": "acc4_poids",
-   "label": "Accouch. 4 — Poids nouveau-né",
+   "label": "Poids nouveau-né — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "weight",
-   "zone": [
-    1093,
-    1779,
-    1306,
-    1845
-   ],
    "table": true
   },
   {
    "id": "acc4_complication_nn",
-   "label": "Accouch. 4 — Complication nouveau-né (type)",
+   "label": "Complication nouveau-né (type) — Accouch. 4",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1093,
-    1857,
-    1306,
-    1936
-   ],
    "table": true
   },
   {
    "id": "acc5_date",
-   "label": "Accouch. 5 — Date",
+   "label": "Date — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "date",
-   "zone": [
-    1318,
-    1468,
-    1530,
-    1534
-   ],
    "table": true
   },
   {
    "id": "acc5_modalite",
-   "label": "Accouch. 5 — Modalité d'extraction",
+   "label": "Modalité d'extraction — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1318,
-    1546,
-    1530,
-    1612
-   ],
    "table": true
   },
   {
    "id": "acc5_indication_cesarienne",
-   "label": "Accouch. 5 — Si césarienne : indication",
+   "label": "Si césarienne : indication — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1318,
-    1624,
-    1530,
-    1689
-   ],
    "table": true,
    "applicable_if": {
     "text_matches": {
@@ -873,156 +466,84 @@
   },
   {
    "id": "acc5_complication",
-   "label": "Accouch. 5 — Complication (type)",
+   "label": "Complication (type) — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1318,
-    1701,
-    1530,
-    1767
-   ],
    "table": true
   },
   {
    "id": "acc5_poids",
-   "label": "Accouch. 5 — Poids nouveau-né",
+   "label": "Poids nouveau-né — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "weight",
-   "zone": [
-    1318,
-    1779,
-    1530,
-    1845
-   ],
    "table": true
   },
   {
    "id": "acc5_complication_nn",
-   "label": "Accouch. 5 — Complication nouveau-né (type)",
+   "label": "Complication nouveau-né (type) — Accouch. 5",
    "group": "Accouchements antérieurs",
    "kind": "text",
-   "zone": [
-    1318,
-    1857,
-    1530,
-    1936
-   ],
    "table": true
   },
   {
    "id": "gestation",
    "label": "Gestation",
    "group": "Gestation et vaccins",
-   "kind": "integer",
-   "zone": [
-    225,
-    1972,
-    335,
-    2025
-   ]
+   "kind": "integer"
   },
   {
    "id": "parite",
    "label": "Parité",
    "group": "Gestation et vaccins",
-   "kind": "integer",
-   "zone": [
-    520,
-    1972,
-    625,
-    2025
-   ]
+   "kind": "integer"
   },
   {
    "id": "enfants_vivants",
    "label": "Nombre d'enfants vivants",
    "group": "Gestation et vaccins",
-   "kind": "integer",
-   "zone": [
-    1045,
-    1975,
-    1155,
-    2028
-   ]
+   "kind": "integer"
   },
   {
    "id": "vat_1",
    "label": "VAT 1",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    214,
-    2067,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "vat_2",
    "label": "VAT 2",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    325,
-    2067,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "vat_3",
    "label": "VAT 3",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    436,
-    2067,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "vat_4",
    "label": "VAT 4",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    547,
-    2067,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "vat_5",
    "label": "VAT 5",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    658,
-    2067,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "rubeole",
    "label": "Vaccinée contre la rubéole",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    115,
-    2120,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "rubeole_date",
-   "label": "Rubéole — date",
+   "label": "Vaccinée contre la rubéole — Le",
    "group": "Gestation et vaccins",
    "kind": "date",
-   "zone": [
-    860,
-    2092,
-    1110,
-    2148
-   ],
    "applicable_if": {
     "any_checked": [
      "rubeole"
@@ -1033,24 +554,13 @@
    "id": "hepatite_b",
    "label": "Vaccinée contre l'hépatite B",
    "group": "Gestation et vaccins",
-   "kind": "checkbox",
-   "box": [
-    115,
-    2165,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "hepatite_b_date",
-   "label": "Hépatite B — date",
+   "label": "Vaccinée contre l'hépatite B — Le",
    "group": "Gestation et vaccins",
    "kind": "date",
-   "zone": [
-    860,
-    2140,
-    1110,
-    2192
-   ],
    "applicable_if": {
     "any_checked": [
      "hepatite_b"
@@ -1061,13 +571,7 @@
    "id": "frottis",
    "label": "Frottis cervical / IVA (moins de 3 ans)",
    "group": "Gestation et vaccins",
-   "kind": "text",
-   "zone": [
-    495,
-    2183,
-    820,
-    2240
-   ]
+   "kind": "text"
   }
  ]
 }
