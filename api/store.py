@@ -97,7 +97,7 @@ CREATE TABLE IF NOT EXISTS pages (
     image_h INTEGER,
     fields_enc BLOB,               -- champs lus (JSON chiffré)
     supersedes TEXT,
-    title TEXT,                    -- titre lu en haut de la fiche (jamais une donnée personnelle)
+    title TEXT,                    -- titre lu en haut de la fiche (chiffré : il peut contenir une valeur)
     error TEXT                     -- pourquoi la page n'a pas pu être lue
 );
 CREATE INDEX IF NOT EXISTS idx_records_patient ON records(patient_id);
@@ -134,6 +134,10 @@ def _write_encrypted(data: bytes, name: str) -> str:
     path = CAPTURES / f"{name}.enc"
     path.write_bytes(fernet().encrypt(data))
     return str(path)
+
+
+def _encrypt_text(text: str | None) -> str | None:
+    return fernet().encrypt(text.encode()).decode() if text else None
 
 
 def read_encrypted(path: str) -> bytes:
@@ -321,7 +325,7 @@ def process_record(record_id: str, extract=None, use_model: bool = True) -> None
                         size = (view.shape[1], view.shape[0])
                     c.execute("""UPDATE pages SET page_type = ?, view_path = ?, image_w = ?, image_h = ?, title = ?,
                                  error = NULL WHERE id = ?""",
-                              (page_type_of(pred), view_path, size[0], size[1], pred.get("title") or None, p["id"]))
+                              (page_type_of(pred), view_path, size[0], size[1], _encrypt_text(pred.get("title")), p["id"]))
                     _save_fields(c, p["id"], fields_from_prediction(pred, p["idx"], at))
                 c.execute("UPDATE records SET failure_reason = NULL, failure_at = NULL WHERE id = ?", (record_id,))
                 _move(c, record_id, "AI_PROCESSED")
@@ -549,7 +553,7 @@ def _record_dict(c, r, image_url) -> dict:
                 "imageSize": [p["image_w"] or 1654, p["image_h"] or 2339], "capturedAt": p["captured_at"],
                 "quality": {"ok": p["error"] is None}, "fields": _load_fields(p)}
         if p["title"]:
-            page["title"] = p["title"]
+            page["title"] = fernet().decrypt(p["title"].encode()).decode()
         if p["error"]:
             page["error"] = p["error"]
         if p["view_path"]:

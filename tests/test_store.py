@@ -45,7 +45,9 @@ def test_capture_lue_puis_a_verifier():
 def test_valeurs_et_photo_chiffrees_au_repos(tmp_path):
     rid = captured()
     raw = (tmp_path / "test.db").read_bytes()
-    assert b"Lyc" not in raw and "Étudiante".encode() not in raw    # valeurs lues jamais en clair
+    # Valeurs lues jamais en clair. Les accents ne peuvent pas apparaître par hasard dans le chiffré (base64).
+    assert "Lycée".encode() not in raw and "Étudiante".encode() not in raw
+    assert PRED["title"].encode() not in raw                          # le titre lu est chiffré aussi
     photo = next((tmp_path / "captures").iterdir()).read_bytes()
     assert photo != b"photo" and store.fernet().decrypt(photo) == b"photo"
     assert rid
