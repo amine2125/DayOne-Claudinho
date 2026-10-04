@@ -70,7 +70,7 @@ async def require_key(request: Request, call_next):
 # (Ajouté après la clé : il l'enveloppe, donc les réponses 401 gardent leurs en-têtes CORS.)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?|https://[a-z0-9-]+\.trycloudflare\.com",  # + tunnels de démo
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
