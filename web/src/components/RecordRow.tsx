@@ -57,7 +57,7 @@ export function RecordRow({ record, className }: { record: RegistryRecord; class
               <span className="text-xs font-semibold text-review">{t('review.summary.toCheck', { n: toCheck })}</span>
             )}
           </div>
-          <span className="truncate text-sm">{record.pages.map((p) => t(`page.${p.pageType}`)).join(' + ')}</span>
+          <span className="truncate text-sm">{record.pages.map((p) => t.page(p)).join(' + ')}</span>
           <span className="text-xs text-muted-foreground">
             {t.relative(record.createdAt)} · {record.midwifeId}
           </span>

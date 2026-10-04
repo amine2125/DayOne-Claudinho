@@ -1,8 +1,8 @@
-import { ArrowLeftIcon, CircleCheckIcon, ImageIcon, LoaderIcon, MessageCircleIcon, SquareIcon, TriangleAlertIcon } from 'lucide-react'
+import { ArrowLeftIcon, CircleCheckIcon, FileJsonIcon, ImageIcon, LoaderIcon, MessageCircleIcon, SquareIcon, TriangleAlertIcon } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { STATUSES_TO_REVIEW } from '@/contract/enums'
-import { SCHEMAS, isReadable } from '@/contract/registry'
+import { SCHEMAS } from '@/contract/registry'
 import type { Field, Page } from '@/contract/types'
 import { PageHeader } from '@/components/AppShell'
 import { FieldRow } from '@/components/FieldRow'
@@ -13,14 +13,18 @@ import { RecordStatusNote } from '@/components/RecordRow'
 import { SectionCard } from '@/components/SectionCard'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { openFields, useAppState } from '@/services'
+import { finalUrl, openFields, useAppState } from '@/services'
 import { useT } from '@/i18n'
 import { cn } from '@/lib/utils'
 
-/** Fields of a page in schema order, so the screen follows the paper top to bottom. */
+/** Reference fields in schema order, then the other fields in reading order (top to bottom). */
 function orderedFields(page: Page): Field[] {
   const order = SCHEMAS[page.pageType]?.fields.map((f) => f.id) ?? []
-  return Object.values(page.fields).sort((a, b) => order.indexOf(a.key) - order.indexOf(b.key))
+  const rank = (f: Field, i: number) => (order.includes(f.key) ? order.indexOf(f.key) : order.length + i)
+  return Object.values(page.fields)
+    .map((f, i) => [f, rank(f, i)] as const)
+    .sort((a, b) => a[1] - b[1])
+    .map(([f]) => f)
 }
 
 function bySection(fields: Field[]) {
@@ -66,7 +70,7 @@ export function PageScreen() {
               <ArrowLeftIcon />
             </Button>
             <PatientCode code={patient?.code ?? record.patientCode} size="lg" />
-            <span className="text-xl font-semibold text-muted-foreground">{record.pages.map((p) => t(`page.${p.pageType}`)).join(' + ')}</span>
+            <span className="text-xl font-semibold text-muted-foreground">{record.pages.map((p) => t.page(p)).join(' + ')}</span>
           </span>
         }
         subtitle={
@@ -78,6 +82,11 @@ export function PageScreen() {
       >
         <div className="flex flex-wrap items-center gap-2">
           <RecordStatusNote record={record} />
+          {record.hasFinal && (
+            <Button variant="outline" size="sm" render={<a href={finalUrl(record.id)} target="_blank" rel="noreferrer" />}>
+              <FileJsonIcon /> {t('record.finalJson')}
+            </Button>
+          )}
           {record.pages.length > 1 &&
             record.pages.map((p, i) => (
               <button
@@ -91,7 +100,7 @@ export function PageScreen() {
                 )}
               >
                 {openFields(p).length > 0 ? <TriangleAlertIcon className="size-4 text-review" /> : <CircleCheckIcon className="size-4 text-known" />}
-                {t(`page.${p.pageType}`)}
+                {t.page(p)}
               </button>
             ))}
         </div>
@@ -109,10 +118,10 @@ export function PageScreen() {
                 <LoaderIcon className={cn(busy && 'animate-spin')} />
                 <AlertDescription>{t(`state.${record.state}`)}</AlertDescription>
               </Alert>
-            ) : !isReadable(page.pageType) || fields.length === 0 ? (
+            ) : fields.length === 0 ? (
               <Alert>
                 <ImageIcon />
-                <AlertDescription>{record.failure ? t('failure.LAYOUT') : t('review.notReadable')}</AlertDescription>
+                <AlertDescription>{page.error ?? (record.failure ? t('failure.LAYOUT') : t('review.notReadable'))}</AlertDescription>
               </Alert>
             ) : (
               <>

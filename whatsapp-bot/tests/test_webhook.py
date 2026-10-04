@@ -21,7 +21,7 @@ def setup_test_settings(monkeypatch):
     monkeypatch.setenv("PHONE_NUMBER_ID", "123456789")
     monkeypatch.setenv("APP_SECRET", "test_app_secret")
     monkeypatch.setenv("VERIFY_TOKEN", "test_verify_token")
-    monkeypatch.setenv("OUR_API_URL", "http://test-api/analyze")
+    monkeypatch.setenv("DAYONE_API_URL", "http://test-api")
     get_settings.cache_clear()
 
 

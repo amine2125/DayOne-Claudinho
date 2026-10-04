@@ -98,3 +98,31 @@ Garçon
 Normal
 Anormal
 Non fait
+
+# Mots isolés fréquents (remis aussi au milieu d'une phrase)
+léger
+légère
+sévère
+réguliers
+irréguliers
+régulier
+Utérus
+utérus cicatriciel
+fœtale
+fœtal
+prématuré
+prématurée
+épisiotomie
+déchirure
+périnée
+hémorragie
+délivrance
+artérielle
+négatif
+négative
+positif
+élevé
+élevée
+première
+deuxième
+troisième

@@ -15,7 +15,7 @@ import type { ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { can, type Permission } from '@/auth/roles'
 import { PAGE_TYPES, type PageType } from '@/contract/enums'
-import { NOTED_SECTIONS, SUMMARY_FIELDS, fieldDef, isNoteworthy, isReadable } from '@/contract/registry'
+import { NOTED_SECTIONS, SUMMARY_FIELDS, fieldDef, isNoteworthy } from '@/contract/registry'
 import type { Field, Page, Patient, RegistryRecord } from '@/contract/types'
 import { PageImage } from '@/components/PageImage'
 import { PatientCode } from '@/components/PatientCode'
@@ -174,7 +174,7 @@ function Summary({ latest, pending, records, t }: Ctx) {
             {todo.map(({ r, f }) => (
               <Link key={r.id + f.key} to={`/records/${r.id}/review`} className="flex items-center gap-2 rounded-lg border p-2 text-sm hover:border-primary">
                 <TriangleAlertIcon className="size-4 text-review" />
-                {t.field(r.pages[f.page].pageType, f.key)}
+                {t.field(r.pages[f.page].pageType, f.key, f.label)}
                 <ArrowRightIcon className="ml-auto size-4" />
               </Link>
             ))}
@@ -224,8 +224,8 @@ function NotedRow({ field, pageType }: { field: Field; pageType: PageType }) {
   const t = useT()
   return (
     <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 py-2">
-      <span className="text-sm text-muted-foreground">{t.field(pageType, field.key)}</span>
-      <span className="font-semibold">{formatValue(t, fieldDef(pageType, field.key)?.kind, field.value)}</span>
+      <span className="text-sm text-muted-foreground">{t.field(pageType, field.key, field.label)}</span>
+      <span className="font-semibold">{formatValue(t, field.kind ?? fieldDef(pageType, field.key)?.kind, field.value)}</span>
     </li>
   )
 }
@@ -299,7 +299,7 @@ function Booklet({ records, pending, t }: Ctx) {
           const hit = latestPage(pt)
           const st: BookletState = !hit
             ? 'missing'
-            : !isReadable(pt) || !Object.keys(hit.page.fields).length
+            : !Object.keys(hit.page.fields).length
               ? 'image'
               : openFields(hit.page).length || !hit.record.patientId
                 ? 'review'
@@ -351,7 +351,7 @@ function Images({ records, t }: Ctx) {
           <figure key={p.id} className="flex flex-col gap-2">
             <PageImage page={p} />
             <figcaption className="text-sm">
-              <b>{t(`page.${p.pageType}`)}</b> · {t.date(p.capturedAt)} · {r.midwifeId}
+              <b>{t.page(p)}</b> · {t.date(p.capturedAt)} · {r.midwifeId}
             </figcaption>
           </figure>
         ))}

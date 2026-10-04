@@ -1,6 +1,6 @@
 # Python 3.12 — installation : python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
 # (ou : uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt)
-# Ollama s'installe à part, puis : ollama pull qwen3-vl:2b-instruct
+# Ollama s'installe à part, puis : ollama pull qwen3-vl:4b-instruct
 numpy==2.3.5
 ollama==0.6.3
 opencv-python-headless==5.0.0.93
@@ -8,9 +8,11 @@ paddleocr==3.7.0
 paddlepaddle==3.3.1
 pandas==3.0.6
 pytest==9.1.1
+streamlit==1.65.0
 
 # API locale (api/) — lancer : .venv/bin/uvicorn api.main:app --port 8000
 fastapi>=0.115
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9
 httpx>=0.27
+cryptography>=42

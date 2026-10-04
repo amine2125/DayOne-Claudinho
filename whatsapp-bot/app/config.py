@@ -1,6 +1,5 @@
 """Configuration module loading environment variables."""
 
-import os
 from functools import lru_cache
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -15,22 +14,19 @@ class Settings(BaseSettings):
     VERIFY_TOKEN: str = ""
     GRAPH_API_VERSION: str = "v21.0"
 
-    # Backend API URL (la route qui reçoit et traite les photos)
-    OUR_API_URL: str = "http://localhost:8080/analyze"
+    # API DayOne (api/main.py) : lecture, base des dossiers, tableau de bord
+    DAYONE_API_URL: str = "http://localhost:8000"
     OUR_API_KEY: str | None = None
-    # L'analyse DayOne (OCR + modèle local) peut dépasser 30 s sur une page complète
-    OUR_API_TIMEOUT: float = 120.0
-    # Où envoyer le registre une fois confirmé (optionnel : sans URL, il reste dans la conversation)
-    CONFIRM_URL: str | None = None
+    # Lecture d'une page (OCR + modèle local) : jusqu'à quelques minutes sur une petite machine
+    READ_TIMEOUT_PER_PAGE: float = 300.0
 
     # Conversation
-    SCHEMA_DIR: str = ""  # vide = dossier schema/ de DayOne
     SESSION_TTL_SECONDS: int = 2 * 3600
     MAX_PAGES: int = 10
 
-    # Server settings
+    # Server settings (8000 est pris par l'API DayOne)
     HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    PORT: int = 8001
 
     model_config = SettingsConfigDict(
         env_file=Path(__file__).resolve().parent.parent / ".env",

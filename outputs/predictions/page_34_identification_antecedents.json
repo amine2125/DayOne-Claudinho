@@ -1,490 +1,729 @@
 {
- "page_type": "identification_antecedents",
  "source": "page 34",
- "mode": "gabarit",
- "model": "qwen3-vl:2b-instruct",
+ "title": "Age: 38",
+ "mode": "generique",
+ "model": "qwen3-vl:4b-instruct",
  "threshold": 0.7,
- "alignment_inliers": 578,
  "timings": {
-  "alignement_s": 0.1,
-  "ocr_s": 3.8,
-  "modele_s": 16.3,
-  "total_s": 20.2
+  "ocr_s": 10.3,
+  "modele_s": 171.1,
+  "total_s": 181.4
  },
- "fields": {
-  "age": {
-   "value": 38,
-   "status": "KNOWN",
-   "confidence": 1.0,
-   "source": "ocr"
-  },
-  "niveau_instruction": {
-   "value": "Collège",
-   "status": "KNOWN",
-   "confidence": 0.967,
-   "source": "ocr"
-  },
-  "profession_femme": {
-   "value": "Femme au fofer",
-   "status": "KNOWN",
-   "confidence": 0.941,
-   "source": "ocr"
-  },
-  "profession_mari": {
-   "value": "Ouvrier",
-   "status": "KNOWN",
-   "confidence": 0.998,
-   "source": "ocr"
-  },
-  "consanguinite": {
-   "value": true,
-   "status": "KNOWN",
-   "confidence": 1.0,
+ "ignores": {
+  "personnels": 4,
+  "non_retrouves": 0
+ },
+ "fields": [
+  {
+   "id": "identification_et_antecedents",
+   "label": "IDENTIFICATION ET ANTÉCÉDENTS",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
    "source": "case"
   },
-  "grossesse_desiree": {
+  {
+   "id": "grossesse_desiree",
+   "label": "Grossesse désirée",
+   "kind": "checkbox",
    "value": true,
    "status": "KNOWN",
-   "confidence": 1.0,
+   "confidence": 0.9,
    "source": "case"
   },
-  "hered_hta_femme": {
+  {
+   "id": "consanguinite",
+   "label": "Consanguinité",
+   "kind": "checkbox",
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vat_1",
+   "label": "VAT 1",
+   "kind": "checkbox",
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vat_2",
+   "label": "VAT 2",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vat_3",
+   "label": "VAT 3",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vat_4",
+   "label": "VAT 4",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vat_5",
+   "label": "VAT 5",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vaccinee_contre_la_rubeole",
+   "label": "Vaccinée contre la rubéole",
+   "kind": "checkbox",
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vaccinee_contre_l_hepatite_b",
+   "label": "Vaccinée contre l'hépatite B",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "medicaux",
+   "label": "Médicaux",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.998,
-   "source": "ocr"
+   "confidence": 0.999,
+   "source": "modele+ocr"
   },
-  "hered_hta_mari": {
+  {
+   "id": "chirurgicaux",
+   "label": "Chirurgicaux",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.7,
-   "source": "ocr+modele"
+   "confidence": 0.987,
+   "source": "modele+ocr"
   },
-  "hered_diabete_femme": {
-   "value": "aucun",
+  {
+   "id": "gynecologiques",
+   "label": "Gynécologiques",
+   "kind": "text",
+   "value": "Cycles réguliers",
    "status": "KNOWN",
-   "confidence": 0.998,
-   "source": "ocr"
+   "confidence": 0.979,
+   "source": "modele+ocr"
   },
-  "hered_diabete_mari": {
-   "value": "aucun",
-   "status": "KNOWN",
-   "confidence": 0.997,
-   "source": "ocr"
-  },
-  "hered_maladies_hereditaires_femme": {
-   "value": "aucun",
-   "status": "KNOWN",
-   "confidence": 0.998,
-   "source": "ocr"
-  },
-  "hered_maladies_hereditaires_mari": {
+  {
+   "id": "hta_famille_de_la_femme",
+   "label": "HTA | Famille de la femme",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
    "confidence": 0.993,
-   "source": "ocr"
+   "source": "modele+ocr"
   },
-  "hered_malformations_femme": {
+  {
+   "id": "hta_mari_famille",
+   "label": "HTA | Mari/famille",
+   "kind": "text",
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "diabete_famille_de_la_femme",
+   "label": "Diabète | Famille de la femme",
+   "kind": "text",
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "diabete_mari_famille",
+   "label": "Diabète | Mari/famille",
+   "kind": "text",
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "maladies_hereditaires_famille_de_la_femme",
+   "label": "Maladies héréditaires | Famille de la femme",
+   "kind": "text",
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "maladies_hereditaires_mari_famille",
+   "label": "Maladies héréditaires | Mari/famille",
+   "kind": "text",
+   "value": "aucun",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "malformations_famille_de_la_femme",
+   "label": "Malformations | Famille de la femme",
+   "kind": "text",
    "value": "Père",
    "status": "KNOWN",
-   "confidence": 0.99,
-   "source": "ocr"
-  },
-  "hered_malformations_mari": {
-   "value": "aucun",
-   "status": "KNOWN",
-   "confidence": 0.992,
-   "source": "ocr"
-  },
-  "hered_allergies_femme": {
-   "value": "aucun",
-   "status": "KNOWN",
    "confidence": 0.998,
-   "source": "ocr"
+   "source": "modele+ocr"
   },
-  "hered_allergies_mari": {
+  {
+   "id": "malformations_mari_famille",
+   "label": "Malformations | Mari/famille",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.997,
-   "source": "ocr"
+   "confidence": 0.993,
+   "source": "modele+ocr"
   },
-  "atcd_medicaux": {
+  {
+   "id": "allergie_s_famille_de_la_femme",
+   "label": "Allergie(s) | Famille de la femme",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.998,
-   "source": "ocr"
+   "confidence": 0.993,
+   "source": "modele+ocr"
   },
-  "atcd_chirurgicaux": {
+  {
+   "id": "allergie_s_mari_famille",
+   "label": "Allergie(s) | Mari/famille",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.853,
-   "source": "ocr"
+   "confidence": 0.993,
+   "source": "modele+ocr"
   },
-  "atcd_gynecologiques": {
-   "value": "Cycles réguliers",
-   "status": "KNOWN",
-   "confidence": 0.974,
-   "source": "ocr"
-  },
-  "obst_autres_precision": {
+  {
+   "id": "avortement_nombre",
+   "label": "Avortement | Nombre",
+   "kind": "integer",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_avortement_nombre": {
+  {
+   "id": "avortement_date",
+   "label": "Avortement | Date",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_avortement_date": {
+  {
+   "id": "avortement_lieu",
+   "label": "Avortement | Lieu",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_avortement_lieu": {
+  {
+   "id": "avortement_age_gestationnel_sa",
+   "label": "Avortement | Age gestationnel (SA)",
+   "kind": "weeks",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_avortement_sa": {
+  {
+   "id": "accouchement_premature_nombre",
+   "label": "Accouchement prématuré | Nombre",
+   "kind": "integer",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_premature_nombre": {
+  {
+   "id": "accouchement_premature_date",
+   "label": "Accouchement prématuré | Date",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_premature_date": {
+  {
+   "id": "accouchement_premature_lieu",
+   "label": "Accouchement prématuré | Lieu",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_premature_lieu": {
+  {
+   "id": "accouchement_premature_age_gestationnel_sa",
+   "label": "Accouchement prématuré | Age gestationnel (SA)",
+   "kind": "weeks",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_premature_sa": {
+  {
+   "id": "mort_ftale_in_utero_nombre",
+   "label": "Mort fœtale in utéro | Nombre",
+   "kind": "integer",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_mfiu_nombre": {
+  {
+   "id": "mort_ftale_in_utero_date",
+   "label": "Mort fœtale in utéro | Date",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_mfiu_date": {
+  {
+   "id": "mort_ftale_in_utero_lieu",
+   "label": "Mort fœtale in utéro | Lieu",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_mfiu_lieu": {
+  {
+   "id": "mort_ftale_in_utero_age_gestationnel_sa",
+   "label": "Mort fœtale in utéro | Age gestationnel (SA)",
+   "kind": "weeks",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_mfiu_sa": {
+  {
+   "id": "autres_a_preciser_nombre",
+   "label": "Autres à préciser | Nombre",
+   "kind": "integer",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_autres_nombre": {
+  {
+   "id": "autres_a_preciser_date",
+   "label": "Autres à préciser | Date",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_autres_date": {
+  {
+   "id": "autres_a_preciser_lieu",
+   "label": "Autres à préciser | Lieu",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_autres_lieu": {
+  {
+   "id": "autres_a_preciser_age_gestationnel_sa",
+   "label": "Autres à préciser | Age gestationnel (SA)",
+   "kind": "weeks",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "obst_autres_sa": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
-  },
-  "acc1_date": {
+  {
+   "id": "date_accouch_1",
+   "label": "Date | Accouch. 1",
+   "kind": "date",
    "value": "2023-05-28",
    "status": "KNOWN",
-   "confidence": 0.98,
-   "source": "ocr"
+   "confidence": 0.938,
+   "source": "modele+ocr"
   },
-  "acc1_modalite": {
-   "value": "Joie hasse",
+  {
+   "id": "modalite_d_extraction_accouch_1",
+   "label": "Modalité d'extraction | Accouch. 1",
+   "kind": "text",
+   "value": "Voie basse",
    "status": "KNOWN",
-   "confidence": 0.965,
-   "source": "ocr"
+   "confidence": 0.994,
+   "source": "modele+ocr"
   },
-  "acc1_indication_cesarienne": {
+  {
+   "id": "si_cesarienne_indication_accouch_1",
+   "label": "Si césarienne : indication | Accouch. 1",
+   "kind": "text",
    "value": null,
-   "status": "NOT_APPLICABLE",
-   "confidence": 0.95,
-   "source": "regle"
+   "status": "NOT_PROVIDED",
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc1_complication": {
+  {
+   "id": "complication_type_accouch_1",
+   "label": "Complication (type) | Accouch. 1",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.978,
-   "source": "ocr"
+   "confidence": 0.996,
+   "source": "modele+ocr"
   },
-  "acc1_poids": {
+  {
+   "id": "poids_nouveau_ne_s_accouch_1",
+   "label": "Poids nouveau-né(s) | Accouch. 1",
+   "kind": "weight",
    "value": 3146,
    "status": "KNOWN",
-   "confidence": 0.702,
-   "source": "ocr"
+   "confidence": 0.973,
+   "source": "modele+ocr"
   },
-  "acc1_complication_nn": {
+  {
+   "id": "compl_nouveau_ne_type_accouch_1",
+   "label": "Compl. nouveau-né (type) | Accouch. 1",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.976,
-   "source": "ocr"
+   "confidence": 0.996,
+   "source": "modele+ocr"
   },
-  "acc2_date": {
+  {
+   "id": "date_accouch_2",
+   "label": "Date | Accouch. 2",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc2_modalite": {
+  {
+   "id": "modalite_d_extraction_accouch_2",
+   "label": "Modalité d'extraction | Accouch. 2",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc2_indication_cesarienne": {
+  {
+   "id": "si_cesarienne_indication_accouch_2",
+   "label": "Si césarienne : indication | Accouch. 2",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc2_complication": {
+  {
+   "id": "complication_type_accouch_2",
+   "label": "Complication (type) | Accouch. 2",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc2_poids": {
+  {
+   "id": "poids_nouveau_ne_s_accouch_2",
+   "label": "Poids nouveau-né(s) | Accouch. 2",
+   "kind": "weight",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc2_complication_nn": {
+  {
+   "id": "compl_nouveau_ne_type_accouch_2",
+   "label": "Compl. nouveau-né (type) | Accouch. 2",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_date": {
+  {
+   "id": "date_accouch_3",
+   "label": "Date | Accouch. 3",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_modalite": {
+  {
+   "id": "modalite_d_extraction_accouch_3",
+   "label": "Modalité d'extraction | Accouch. 3",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_indication_cesarienne": {
+  {
+   "id": "si_cesarienne_indication_accouch_3",
+   "label": "Si césarienne : indication | Accouch. 3",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_complication": {
+  {
+   "id": "complication_type_accouch_3",
+   "label": "Complication (type) | Accouch. 3",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_poids": {
+  {
+   "id": "poids_nouveau_ne_s_accouch_3",
+   "label": "Poids nouveau-né(s) | Accouch. 3",
+   "kind": "weight",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc3_complication_nn": {
+  {
+   "id": "compl_nouveau_ne_type_accouch_3",
+   "label": "Compl. nouveau-né (type) | Accouch. 3",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_date": {
+  {
+   "id": "date_accouch_4",
+   "label": "Date | Accouch. 4",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_modalite": {
+  {
+   "id": "modalite_d_extraction_accouch_4",
+   "label": "Modalité d'extraction | Accouch. 4",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_indication_cesarienne": {
+  {
+   "id": "si_cesarienne_indication_accouch_4",
+   "label": "Si césarienne : indication | Accouch. 4",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_complication": {
+  {
+   "id": "complication_type_accouch_4",
+   "label": "Complication (type) | Accouch. 4",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_poids": {
+  {
+   "id": "poids_nouveau_ne_s_accouch_4",
+   "label": "Poids nouveau-né(s) | Accouch. 4",
+   "kind": "weight",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc4_complication_nn": {
+  {
+   "id": "compl_nouveau_ne_type_accouch_4",
+   "label": "Compl. nouveau-né (type) | Accouch. 4",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_date": {
+  {
+   "id": "date_accouch_5",
+   "label": "Date | Accouch. 5",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_modalite": {
+  {
+   "id": "modalite_d_extraction_accouch_5",
+   "label": "Modalité d'extraction | Accouch. 5",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_indication_cesarienne": {
+  {
+   "id": "si_cesarienne_indication_accouch_5",
+   "label": "Si césarienne : indication | Accouch. 5",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_complication": {
+  {
+   "id": "complication_type_accouch_5",
+   "label": "Complication (type) | Accouch. 5",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_poids": {
+  {
+   "id": "poids_nouveau_ne_s_accouch_5",
+   "label": "Poids nouveau-né(s) | Accouch. 5",
+   "kind": "weight",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "acc5_complication_nn": {
+  {
+   "id": "compl_nouveau_ne_type_accouch_5",
+   "label": "Compl. nouveau-né (type) | Accouch. 5",
+   "kind": "text",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.7,
+   "source": "modele"
   },
-  "gestation": {
-   "value": null,
+  {
+   "id": "age",
+   "label": "Age",
+   "kind": "integer",
+   "value": 38,
+   "status": "KNOWN",
+   "confidence": 0.984,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "niveau_d_instruction",
+   "label": "Niveau d'instruction",
+   "kind": "text",
+   "value": "Collège",
    "status": "NEEDS_REVIEW",
    "confidence": 0.5,
-   "source": "ocr+modele"
+   "source": "modele"
   },
-  "parite": {
+  {
+   "id": "profession",
+   "label": "Profession",
+   "kind": "text",
+   "value": "Femme au foyer",
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "modele"
+  },
+  {
+   "id": "profession_2",
+   "label": "Profession",
+   "kind": "text",
+   "value": "Ouvrier",
+   "status": "KNOWN",
+   "confidence": 0.993,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "gestation",
+   "label": "Gestation",
+   "kind": "integer",
+   "value": 2,
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "modele"
+  },
+  {
+   "id": "parite",
+   "label": "Parité",
+   "kind": "integer",
    "value": 1,
    "status": "KNOWN",
-   "confidence": 0.947,
-   "source": "ocr"
+   "confidence": 0.975,
+   "source": "modele+ocr"
   },
-  "enfants_vivants": {
+  {
+   "id": "nombre_d_enfants_vivants",
+   "label": "Nombre d'enfants vivants",
+   "kind": "integer",
    "value": 1,
    "status": "KNOWN",
-   "confidence": 0.964,
-   "source": "ocr"
+   "confidence": 0.975,
+   "source": "modele+ocr"
   },
-  "vat_1": {
-   "value": true,
-   "status": "KNOWN",
-   "confidence": 1.0,
-   "source": "case"
+  {
+   "id": "frottis_cervical_iva_moins_de_3_ans",
+   "label": "Frottis cervical / IVA (moins de 3 ans)",
+   "kind": "text",
+   "value": "Non fait",
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "modele"
   },
-  "vat_2": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "vat_3": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "vat_4": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "vat_5": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "rubeole": {
-   "value": true,
-   "status": "KNOWN",
-   "confidence": 1.0,
-   "source": "case"
-  },
-  "rubeole_date": {
+  {
+   "id": "le",
+   "label": "Le",
+   "kind": "date",
    "value": "2022-05-12",
    "status": "NEEDS_REVIEW",
    "confidence": 0.5,
-   "source": "ocr+modele"
+   "source": "modele"
   },
-  "hepatite_b": {
+  {
+   "id": "le_2",
+   "label": "Le",
+   "kind": "date",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "hepatite_b_date": {
-   "value": null,
-   "status": "NEEDS_REVIEW",
-   "confidence": 0.251,
-   "source": "ocr+modele"
-  },
-  "frottis": {
-   "value": "Non fait",
-   "status": "KNOWN",
-   "confidence": 0.959,
-   "source": "ocr"
+   "confidence": 0.7,
+   "source": "modele"
   }
- }
+ ]
 }

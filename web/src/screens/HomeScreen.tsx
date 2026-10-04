@@ -182,7 +182,7 @@ function Activity({ records }: { records: RegistryRecord[] }) {
               <PatientCode code={code(r)} size="sm" />
               <span className="text-xs text-muted-foreground">{t.relative(r.createdAt)}</span>
             </span>
-            <span className="truncate text-xs">{r.pages.map((p) => t(`page.${p.pageType}`)).join(' + ')}</span>
+            <span className="truncate text-xs">{r.pages.map((p) => t.page(p)).join(' + ')}</span>
             <RecordStatusNote record={r} />
           </Link>
         ))}
@@ -193,7 +193,7 @@ function Activity({ records }: { records: RegistryRecord[] }) {
         {recent.map((r) => (
           <Link key={r.id} to={`/records/${r.id}`} className="flex items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-sm hover:bg-muted/60">
             <PatientCode code={code(r)} size="sm" />
-            <span className="truncate text-muted-foreground">{t(`page.${r.pages[0]?.pageType ?? 'identification_antecedents'}`)}</span>
+            <span className="truncate text-muted-foreground">{t.page(r.pages[0] ?? { pageType: 'identification_antecedents' })}</span>
           </Link>
         ))}
       </section>

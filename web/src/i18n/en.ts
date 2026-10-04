@@ -61,6 +61,16 @@ export const en: Dict = {
   'state.MANUAL_REVIEW_REQUIRED': 'Typed by hand',
   'failure.LAYOUT': 'The page was not recognised (different photo or layout).',
 
+
+  // why the reading doubts a field (dayone/extract.py)
+  'reason.non_rattache': 'Handwriting not linked to a field',
+  'reason.etiquette_douteuse': 'Label misread',
+  'reason.champ_nouveau': 'Field unknown to the registry',
+  'reason.choix_nouveau': 'Checkbox unknown to the registry',
+  'reason.valeur_douteuse': 'Uncertain reading',
+  'review.readAs': 'read “{v}”',
+  'record.codePending': 'Code pending',
+  'record.finalJson': 'Final result (JSON)',
   'page.unknown': 'Unrecognised page',
   'page.fiche_surveillance': 'Monitoring sheet',
   'page.identification_antecedents': 'Identification and history',

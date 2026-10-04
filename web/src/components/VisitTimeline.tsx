@@ -1,6 +1,5 @@
 import { CircleCheckIcon, ImageIcon, TriangleAlertIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { isReadable } from '@/contract/registry'
 import type { RegistryRecord, Visit } from '@/contract/types'
 import { openFields } from '@/services'
 import { useT } from '@/i18n'
@@ -29,7 +28,7 @@ export function VisitTimeline({ visits, records }: { visits: Visit[]; records: R
                 {recs.flatMap((r) =>
                   r.pages.map((p, pi) => {
                     const open = openFields(p).length
-                    const Icon = !isReadable(p.pageType) || !Object.keys(p.fields).length ? ImageIcon : open ? TriangleAlertIcon : CircleCheckIcon
+                    const Icon = !Object.keys(p.fields).length ? ImageIcon : open ? TriangleAlertIcon : CircleCheckIcon
                     return (
                       <Link
                         key={p.id}
@@ -37,7 +36,7 @@ export function VisitTimeline({ visits, records }: { visits: Visit[]; records: R
                         className="inline-flex h-10 items-center gap-2 rounded-lg border bg-card px-3 text-sm hover:border-primary"
                       >
                         <Icon className={`size-4 ${open ? 'text-review' : Icon === CircleCheckIcon ? 'text-known' : 'text-muted-foreground'}`} />
-                        {t(`page.${p.pageType}`)}
+                        {t.page(p)}
                       </Link>
                     )
                   }),

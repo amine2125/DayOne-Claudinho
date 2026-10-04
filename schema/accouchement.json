@@ -1,210 +1,108 @@
 {
  "page_type": "accouchement",
  "title": "Déroulement de l'accouchement",
- "reference_page": 4,
- "image_size": [
-  1654,
-  2339
- ],
- "excluded_zones": {
-  "nom_patiente": [
-   200,
-   170,
-   800,
-   250
-  ]
- },
  "fields": [
   {
    "id": "lieu_milieu_surveille",
    "label": "En milieu surveillé",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    116,
-    400,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "lieu_maison_accouchement",
    "label": "Maison d'accouchement",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    603,
-    382,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "lieu_maternite",
    "label": "Maternité",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    603,
-    427,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "lieu_clinique_privee",
    "label": "Clinique privée",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    603,
-    471,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "lieu_autre",
-   "label": "Milieu surveillé — autres",
+   "label": "Lieu — Autres",
    "group": "Lieu",
-   "kind": "text",
-   "zone": [
-    670,
-    490,
-    1490,
-    545
-   ]
+   "kind": "text"
   },
   {
    "id": "lieu_domicile",
-   "label": "À domicile",
+   "label": "A domicile",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    118,
-    650,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "domicile_assiste_qualifie",
    "label": "Assisté par un personnel qualifié",
    "group": "Lieu",
-   "kind": "checkbox",
-   "box": [
-    604,
-    646,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "domicile_autre",
-   "label": "Domicile — autres",
+   "label": "A domicile — Autres",
    "group": "Lieu",
-   "kind": "text",
-   "zone": [
-    670,
-    672,
-    1490,
-    728
-   ]
+   "kind": "text"
   },
   {
    "id": "date_accouchement",
    "label": "Date de l'accouchement",
    "group": "Date",
-   "kind": "date",
-   "zone": [
-    375,
-    800,
-    700,
-    862
-   ]
+   "kind": "date"
   },
   {
    "id": "mode_voie_basse_non_instrumentale",
    "label": "Voie basse non instrumentale",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    607,
-    965,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_voie_basse_instrumentale",
    "label": "Voie basse instrumentale",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    607,
-    1015,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_forceps",
    "label": "Forceps",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    705,
-    1059,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_ventouse",
    "label": "Ventouse",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    705,
-    1104,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_episiotomie",
    "label": "Avec épisiotomie",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    705,
-    1148,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_cesarienne_programmee",
-   "label": "Césarienne programmée",
+   "label": "Césarienne : Programmée",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    609,
-    1204,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "mode_cesarienne_urgence",
-   "label": "Césarienne en urgence",
+   "label": "Urgence",
    "group": "Mode de l'accouchement",
-   "kind": "checkbox",
-   "box": [
-    1095,
-    1201,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "cesarienne_indication",
-   "label": "Césarienne — indication",
+   "label": "Préciser l'indication",
    "group": "Mode de l'accouchement",
    "kind": "text",
-   "zone": [
-    805,
-    1225,
-    1490,
-    1296
-   ],
    "applicable_if": {
     "any_checked": [
      "mode_cesarienne_programmee",
@@ -216,101 +114,55 @@
    "id": "complications_presence",
    "label": "Présence de complications",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    541,
-    1397,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "complications_accouchement",
    "label": "Au moment de l'accouchement",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    610,
-    1404,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "complications_suites_couches",
    "label": "Suites de couches",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    610,
-    1449,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_pre_eclampsie",
    "label": "Pré-éclampsie",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    708,
-    1548,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_eclampsie",
    "label": "Éclampsie",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    709,
-    1590,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_hemorragie",
    "label": "Hémorragie",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    709,
-    1631,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_infection",
    "label": "Infection",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    709,
-    1673,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_autres",
-   "label": "Autres complications",
+   "label": "Autres",
    "group": "Complications",
-   "kind": "checkbox",
-   "box": [
-    710,
-    1715,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "compl_autres_precision",
-   "label": "Autres complications — précision",
+   "label": "Si autres à préciser",
    "group": "Complications",
    "kind": "text",
-   "zone": [
-    905,
-    1735,
-    1490,
-    1795
-   ],
    "applicable_if": {
     "any_checked": [
      "compl_autres"
@@ -321,94 +173,49 @@
    "id": "nn_vivant",
    "label": "Vivant",
    "group": "Nouveau-né",
-   "kind": "checkbox",
-   "box": [
-    613,
-    1896,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "nn_mort_ne",
    "label": "Mort-né",
    "group": "Nouveau-né",
-   "kind": "checkbox",
-   "box": [
-    808,
-    1895,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "nn_deces_24h",
    "label": "Décès < 24 heures",
    "group": "Nouveau-né",
-   "kind": "checkbox",
-   "box": [
-    1030,
-    1893,
-    24
-   ]
+   "kind": "checkbox"
   },
   {
    "id": "nn_sexe",
    "label": "Sexe",
    "group": "Nouveau-né",
-   "kind": "sex",
-   "zone": [
-    680,
-    1935,
-    900,
-    1986
-   ]
+   "kind": "sex"
   },
   {
    "id": "nn_poids",
    "label": "Poids à la naissance",
    "group": "Nouveau-né",
-   "kind": "weight",
-   "zone": [
-    835,
-    1990,
-    1100,
-    2040
-   ]
+   "kind": "weight"
   },
   {
    "id": "nn_perimetre_cranien",
-   "label": "Périmètre crânien",
+   "label": "Périmètre crânien à la naissance",
    "group": "Nouveau-né",
-   "kind": "length",
-   "zone": [
-    955,
-    2045,
-    1150,
-    2095
-   ]
+   "kind": "length"
   },
   {
    "id": "nn_anomalie",
    "label": "Anomalie à préciser",
    "group": "Nouveau-né",
-   "kind": "text",
-   "zone": [
-    828,
-    2105,
-    1480,
-    2156
-   ]
+   "kind": "text"
   },
   {
    "id": "nn_age_gestationnel",
    "label": "Âge gestationnel",
    "group": "Nouveau-né",
-   "kind": "weeks",
-   "zone": [
-    798,
-    2160,
-    1000,
-    2212
-   ]
+   "kind": "weeks"
   }
  ]
 }

@@ -14,6 +14,7 @@ export const SECTIONS_EN: Record<string, string> = {
   "Mode de l'accouchement": 'Mode of delivery',
   Complications: 'Complications',
   'Nouveau-né': 'Newborn',
+  'Autres champs lus': 'Other fields read',
 }
 
 const ACC = (n: number): Record<string, string> => ({

@@ -1,16 +1,21 @@
-"""Conversation WhatsApp autour d'un registre : photos → lecture → vérification → confirmation.
+"""Conversation WhatsApp autour d'un registre, branchée sur l'API DayOne (api/main.py).
 
-États d'une conversation (un par numéro) :
+Chaque photo est envoyée à l'API dès sa réception : enregistrée (chiffrée) dans la base, puis lue
+en arrière-plan pendant que la sage-femme photographie la page suivante.
 
-    IDLE ──photo──▶ COLLECTING ──« Terminé »──▶ lecture ──▶ REVIEW (page i/n)
-                     (photos suivantes)                       │ 1 Confirmer → page suivante ou fin
-                                                              │ 2 Corriger  → CHOOSE_FIELD → EDIT_VALUE → REVIEW
-                                                              │ 3 Voir      → liste des valeurs → REVIEW
-                                                              │ 4 Reprendre → RETAKE ──photo──▶ REVIEW
-                                                              └ 5 Ignorer (page illisible seulement)
+    IDLE ──photo──▶ COLLECTING (dossier créé, photos suivantes ajoutées) ──« Terminé »──▶ fin de la lecture
+         ──▶ ASK_CODE (code lu sur la page proposé) ──code──▶ REVIEW (page i/n)
+      1 Confirmer ── page suivante, ou fin ──▶ validation (résultat final stocké) ──▶ LINK (patiente)
+                                           ──▶ récapitulatif tiré du résultat final
+                 └─ s'il reste des doutes : CONFIRM_UNCERTAIN (1 confirmer tels quels / 2 corriger)
+      2 Corriger  ──▶ CHOOSE_FIELD ──numéro──▶ EDIT_VALUE ──valeur──▶ REVIEW
+      3 Voir      ──▶ liste des valeurs ──▶ REVIEW
+      4 Reprendre ──▶ RETAKE ──photo──▶ relecture de cette page seule ──▶ REVIEW
+      5 Ignorer   (page illisible seulement)
 
-« annuler » remet la conversation à zéro depuis n'importe quel état.
-Les sessions vivent en mémoire : un redémarrage du serveur les efface.
+Tout ce que la sage-femme fait passe par l'API : le tableau de bord voit le dossier en direct.
+« annuler » remet la conversation à zéro ; un dossier déjà créé reste « à vérifier » sur le tableau de bord.
+Les sessions vivent en mémoire : un redémarrage du bot les efface (pas les dossiers).
 """
 
 import asyncio
@@ -20,8 +25,8 @@ import time
 from dataclasses import dataclass, field
 from enum import Enum
 
-from app import render
-from app.backend import AnalysisError, analyze_page, save_record
+from app import backend, render
+from app.backend import ApiError
 from app.config import get_settings
 from app.security import mask_phone
 from app.whatsapp import download_media, send_buttons, send_text
@@ -38,29 +43,39 @@ HELP_WORDS = {"/aide", "/help", "/start", "aide"}
 BACK = "0"
 # Dans la saisie d'une valeur, « 0 » peut être une vraie réponse (0 avortement) : on revient avec « retour »
 BACK_WORD = "retour"
+CODE_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9 \-_/]{0,19}")
 
 
 class State(str, Enum):
     IDLE = "idle"
     COLLECTING = "collecting"
+    ASK_CODE = "ask_code"
     REVIEW = "review"
+    CONFIRM_UNCERTAIN = "confirm_uncertain"
     CHOOSE_FIELD = "choose_field"
     EDIT_VALUE = "edit_value"
     RETAKE = "retake"
+    LINK = "link"
 
 
 @dataclass
 class Session:
     state: State = State.IDLE
-    photos: list[tuple[bytes, str, str | None]] = field(default_factory=list)  # (octets, mime, légende)
-    pages: list[dict] = field(default_factory=list)  # pages lues ; une page en échec porte "error"
-    current: int = 0
-    edit_field: render.FieldDef | None = None
+    record_id: str | None = None      # dossier créé dès la 1re photo
+    sent: int = 0                     # pages envoyées à l'API
+    record: dict | None = None        # dernier état du dossier renvoyé par l'API (après lecture)
+    current: int = 0                  # position de la page affichée dans record["pages"]
+    edit_key: str | None = None
+    candidates: list[dict] = field(default_factory=list)
     updated_at: float = field(default_factory=time.time)
 
     @property
     def page(self) -> dict:
-        return self.pages[self.current]
+        return self.record["pages"][self.current]
+
+    @property
+    def total(self) -> int:
+        return len(self.record["pages"]) if self.record else 0
 
 
 _sessions: dict[str, Session] = {}
@@ -94,7 +109,8 @@ def parse_choice(text: str) -> int | None:
 
 HELP_TEXT = (
     "🤖 *Assistant registre DayOne*\n\n"
-    "📸 Envoyez la photo d'une page du registre (une ou plusieurs pages), puis appuyez sur *Terminé*.\n"
+    "📸 Envoyez la photo d'une page du registre (une ou plusieurs pages) : chacune est enregistrée et lue "
+    "dès sa réception. Appuyez ensuite sur *Terminé* et donnez le code patiente écrit sur le registre.\n"
     "Je lis chaque page, puis vous pouvez :\n"
     "1️⃣ confirmer · 2️⃣ corriger un champ · 3️⃣ voir les valeurs · 4️⃣ reprendre la photo\n\n"
     "⚙️ *Commandes* : */aide* · */status* · *annuler*"
@@ -111,7 +127,10 @@ GREETING_TEXT = (
 async def handle_text(phone: str, text: str) -> None:
     """Message texte ou clic sur un bouton (son id arrive comme texte)."""
     async with _lock(phone):
-        await _handle_text(phone, text)
+        try:
+            await _handle_text(phone, text)
+        except ApiError as exc:
+            await send_text(to=phone, body=f"⚠️ {exc}")
 
 
 async def handle_image(phone: str, media_id: str, caption: str | None) -> None:
@@ -123,7 +142,10 @@ async def handle_image(phone: str, media_id: str, caption: str | None) -> None:
         await send_text(to=phone, body="⚠️ Impossible de récupérer la photo. Renvoyez-la, s'il vous plaît.")
         return
     async with _lock(phone):
-        await _handle_image(phone, image, caption)
+        try:
+            await _handle_image(phone, image)
+        except ApiError as exc:
+            await send_text(to=phone, body=f"⚠️ {exc}")
 
 
 # --- Texte ---
@@ -139,13 +161,16 @@ async def _handle_text(phone: str, text: str) -> None:
         await send_text(to=phone, body=STATUS_TEXT)
         return
     if norm in CANCEL_WORDS:
+        had_record = session.record_id is not None
         had_work = session.state != State.IDLE
         reset_session(phone)
-        await send_text(
-            to=phone,
-            body="🗑️ Registre annulé. Envoyez une photo pour recommencer." if had_work
-            else "Rien à annuler. Envoyez une photo pour commencer.",
-        )
+        if had_record:
+            body = "🗑️ Conversation annulée. Le dossier reste « à vérifier » sur le tableau de bord."
+        elif had_work:
+            body = "🗑️ Registre annulé. Envoyez une photo pour recommencer."
+        else:
+            body = "Rien à annuler. Envoyez une photo pour commencer."
+        await send_text(to=phone, body=body)
         return
     if norm.startswith("/"):
         await send_text(
@@ -154,93 +179,131 @@ async def _handle_text(phone: str, text: str) -> None:
         )
         return
 
-    if session.state == State.IDLE:
-        await send_text(to=phone, body=GREETING_TEXT)
-    elif session.state == State.COLLECTING:
-        if norm in DONE_WORDS:
-            await _read_pages(phone, session)
-        else:
-            await send_buttons(
-                phone,
-                f"📄 {len(session.photos)} page(s) reçue(s). Envoyez la page suivante, "
-                "ou appuyez sur *Terminé* pour lancer la lecture.",
-                COLLECT_BUTTONS,
-            )
-    elif session.state == State.REVIEW:
-        await _on_menu_choice(phone, session, text)
-    elif session.state == State.CHOOSE_FIELD:
-        await _on_field_choice(phone, session, text)
-    elif session.state == State.EDIT_VALUE:
-        await _on_new_value(phone, session, text)
-    elif session.state == State.RETAKE:
-        if norm in (BACK, BACK_WORD) and "error" not in session.page:
-            session.state = State.REVIEW
-            await _send_current_page(phone, session)
-        else:
-            back = " Tapez *0* pour revenir au menu." if "error" not in session.page else ""
-            await send_text(to=phone, body=f"📷 J'attends la nouvelle photo de la page {session.current + 1}.{back}")
+    handlers = {
+        State.IDLE: _on_idle_text,
+        State.COLLECTING: _on_collecting_text,
+        State.ASK_CODE: _on_code,
+        State.REVIEW: _on_menu_choice,
+        State.CONFIRM_UNCERTAIN: _on_confirm_uncertain,
+        State.CHOOSE_FIELD: _on_field_choice,
+        State.EDIT_VALUE: _on_new_value,
+        State.RETAKE: _on_retake_text,
+        State.LINK: _on_link_choice,
+    }
+    await handlers[session.state](phone, session, text)
+
+
+async def _on_idle_text(phone: str, session: Session, text: str) -> None:
+    await send_text(to=phone, body=GREETING_TEXT)
+
+
+async def _on_collecting_text(phone: str, session: Session, text: str) -> None:
+    if text.strip().lower() not in DONE_WORDS:
+        await send_buttons(
+            phone,
+            f"📄 {session.sent} page(s) enregistrée(s). Envoyez la page suivante, "
+            "ou appuyez sur *Terminé* quand le registre est complet.",
+            COLLECT_BUTTONS,
+        )
+        return
+    await send_text(
+        to=phone,
+        body=f"📂 {session.sent} page(s) regroupée(s) en un seul registre. Je termine la lecture et je reviens vers vous…",
+    )
+    session.record = await backend.wait_until_read(session.record_id, session.sent)
+    session.current = 0
+    session.state = State.ASK_CODE
+    await send_text(to=phone, body=_code_question(session))
+
+
+def _code_question(session: Session) -> str:
+    suggestion = session.record.get("codeSuggestion")
+    if suggestion:
+        return (f"🔖 Code patiente lu sur le registre : *{suggestion}*\n"
+                "Répondez *1* pour le garder, ou tapez le bon code.")
+    return "🔖 Quel est le *code patiente* écrit sur le registre ?"
+
+
+async def _on_code(phone: str, session: Session, text: str) -> None:
+    suggestion = session.record.get("codeSuggestion")
+    code = suggestion if suggestion and parse_choice(text) == 1 else text.strip()
+    if not CODE_PATTERN.fullmatch(code):
+        await send_text(
+            to=phone,
+            body="❌ Ce code n'est pas valide. Tapez le code patiente tel qu'écrit sur le registre "
+                 "(lettres et chiffres, 20 caractères au plus), ou *annuler*.",
+        )
+        return
+    await backend.set_code(session.record_id, code)
+    await _refresh(session)
+    await _show_page(phone, session)
+
+
+async def _on_retake_text(phone: str, session: Session, text: str) -> None:
+    norm = text.strip().lower()
+    if norm in (BACK, BACK_WORD) and "error" not in session.page:
+        await _show_page(phone, session)
+        return
+    back = " Tapez *0* pour revenir au menu." if "error" not in session.page else ""
+    await send_text(to=phone, body=f"📷 J'attends la nouvelle photo de la page {session.current + 1}.{back}")
 
 
 # --- Photos ---
 
-async def _handle_image(phone: str, image: tuple[bytes, str], caption: str | None) -> None:
+async def _handle_image(phone: str, image: tuple[bytes, str]) -> None:
     session = get_session(phone)
-    image_bytes, mime_type = image
 
     if session.state in (State.IDLE, State.COLLECTING):
-        if len(session.photos) >= get_settings().MAX_PAGES:
+        if session.sent >= get_settings().MAX_PAGES:
             await send_buttons(
                 phone,
-                f"⚠️ {get_settings().MAX_PAGES} pages au maximum par registre. Appuyez sur *Terminé* pour lancer la lecture.",
+                f"⚠️ {get_settings().MAX_PAGES} pages au maximum par registre. Appuyez sur *Terminé*.",
                 COLLECT_BUTTONS,
             )
             return
-        session.photos.append((image_bytes, mime_type, caption))
+        # Enregistrée tout de suite dans la base (chiffrée) ; l'API la lit en arrière-plan
+        if session.record_id is None:
+            session.record_id = await backend.create_record(image, phone)
+            logger.info("Record %s created by %s", session.record_id, mask_phone(phone))
+        else:
+            await backend.add_page(session.record_id, image)
+        session.sent += 1
         session.state = State.COLLECTING
         await send_buttons(
             phone,
-            f"📄 Page {len(session.photos)} reçue. Envoyez les pages suivantes du même registre, "
-            "puis appuyez sur *Terminé*.",
+            f"📄 Page {session.sent} reçue et enregistrée, lecture en cours. "
+            "Envoyez les pages suivantes du même registre, puis appuyez sur *Terminé*.",
             COLLECT_BUTTONS,
         )
     elif session.state == State.RETAKE:
+        index = session.page["index"]
         await send_text(to=phone, body=f"🔎 Nouvelle photo reçue, je relis la page {session.current + 1}…")
-        session.pages[session.current] = await _analyze(phone, image_bytes, mime_type, caption)
-        session.state = State.REVIEW
-        await _send_current_page(phone, session)
+        await backend.replace_page(session.record_id, index, image)
+        await _refresh(session, wait=True)
+        await _show_page(phone, session)
+    elif session.state == State.ASK_CODE:
+        await send_text(to=phone, body="🔖 J'attends d'abord le *code patiente* écrit sur le registre.")
     else:
+        where = f" (page {session.current + 1}/{session.total})" if session.record else ""
         await send_text(
             to=phone,
-            body=f"📷 Une vérification est en cours (page {session.current + 1}/{len(session.pages)}). "
-                 "Terminez-la d'abord, ou tapez *annuler* pour recommencer.",
+            body=f"📷 Une vérification est en cours{where}. Terminez-la d'abord, "
+                 "ou tapez *annuler* pour recommencer.",
         )
 
 
-async def _analyze(phone: str, image_bytes: bytes, mime_type: str, caption: str | None) -> dict:
-    try:
-        return await analyze_page(image_bytes, mime_type, phone, caption)
-    except AnalysisError as exc:
-        return {"error": str(exc)}
+async def _refresh(session: Session, wait: bool = False) -> None:
+    record_id = session.record_id
+    session.record = await (backend.wait_until_read(record_id) if wait else backend.get_record(record_id))
+    session.current = min(session.current, session.total - 1)
 
 
-async def _read_pages(phone: str, session: Session) -> None:
-    photos, session.photos = session.photos, []  # on libère les images dès la lecture
-    await send_text(
-        to=phone,
-        body=f"📂 {len(photos)} page(s) regroupée(s) en un seul registre. Je les lis et je reviens vers vous…",
-    )
-    session.pages = [await _analyze(phone, *photo) for photo in photos]
-    session.current = 0
+async def _show_page(phone: str, session: Session) -> None:
     session.state = State.REVIEW
-    await _send_current_page(phone, session)
-
-
-async def _send_current_page(phone: str, session: Session) -> None:
-    total = len(session.pages)
-    if "error" in session.page:
-        body = render.failed_page_text(session.page, session.current, total)
+    if "error" in session.page or not session.page.get("fields"):
+        body = render.failed_page_text(session.page, session.current, session.total, can_drop=session.total > 1)
     else:
-        body = render.review_text(session.page, session.current, total)
+        body = render.review_text(session.page, session.current, session.total)
     await send_text(to=phone, body=body)
 
 
@@ -248,27 +311,30 @@ async def _send_current_page(phone: str, session: Session) -> None:
 
 async def _on_menu_choice(phone: str, session: Session, text: str) -> None:
     choice = parse_choice(text)
-    failed = "error" in session.page
-    valid = (4, 5) if failed else (1, 2, 3, 4)
+    failed = "error" in session.page or not session.page.get("fields")
+    valid = ((4, 5) if session.total > 1 else (4,)) if failed else (1, 2, 3, 4)
 
     if choice not in valid:
-        options = ", ".join(str(v) for v in valid[:-1]) + f" ou {valid[-1]}"
+        options = " ou ".join(str(v) for v in valid) if len(valid) <= 2 else \
+            ", ".join(str(v) for v in valid[:-1]) + f" ou {valid[-1]}"
         await send_text(to=phone, body=f"❌ « {text.strip()[:30]} » n'est pas une des options proposées. Répondez {options}.")
-        await _send_current_page(phone, session)
+        await _show_page(phone, session)
         return
 
     if choice == 1:
-        session.page["confirmed"] = True
-        await _next_page(phone, session, f"✅ Page {session.current + 1} confirmée.")
+        if render.uncertain(session.page):
+            session.state = State.CONFIRM_UNCERTAIN
+            await send_text(to=phone, body=render.confirm_uncertain_text(session.page))
+            return
+        await _next_page(phone, session)
     elif choice == 2:
-        session.state = State.CHOOSE_FIELD
-        await send_text(to=phone, body=_field_list_text(session.page))
+        await _ask_field(phone, session)
     elif choice == 3:
         await send_text(
             to=phone,
-            body=f"📋 *Valeurs lues · page {session.current + 1}/{len(session.pages)}*\n\n{render.values_text(session.page)}",
+            body=f"📋 *Valeurs lues · page {session.current + 1}/{session.total}*\n\n{render.values_text(session.page)}",
         )
-        await _send_current_page(phone, session)
+        await _show_page(phone, session)
     elif choice == 4:
         session.state = State.RETAKE
         back = "\nTapez *0* pour revenir au menu." if not failed else ""
@@ -277,104 +343,139 @@ async def _on_menu_choice(phone: str, session: Session, text: str) -> None:
             body=f"📷 Envoyez une nouvelle photo de la page {session.current + 1} (bien à plat, sans reflet).{back}",
         )
     elif choice == 5:
-        session.pages.pop(session.current)
-        if not session.pages:
-            reset_session(phone)
-            await send_text(to=phone, body="🗑️ Page ignorée. Aucune page à enregistrer : envoyez une photo pour recommencer.")
-            return
-        await _next_page(phone, session, "🗑️ Page ignorée.", advance=False)
+        was_last = session.current == session.total - 1
+        await backend.drop_page(session.record_id, session.page["index"])
+        await _refresh(session)
+        await send_text(to=phone, body="🗑️ Page ignorée.")
+        if was_last:
+            await _finish(phone, session)   # les pages d'avant sont déjà confirmées
+        else:
+            await _show_page(phone, session)  # la page suivante a pris sa place
 
 
-async def _next_page(phone: str, session: Session, note: str, advance: bool = True) -> None:
-    if advance:
+async def _on_confirm_uncertain(phone: str, session: Session, text: str) -> None:
+    choice = parse_choice(text)
+    if choice == 1:
+        # La sage-femme a regardé le registre : les valeurs douteuses sont confirmées telles quelles
+        for nf in render.uncertain(session.page):
+            await backend.confirm_field(session.record_id, session.page["index"], nf.key, phone)
+        await _refresh(session)
+        await _next_page(phone, session)
+    elif choice == 2:
+        await _ask_field(phone, session)
+    else:
+        await send_text(to=phone, body=f"❌ « {text.strip()[:30]} » n'est pas une des options proposées. Répondez 1 ou 2.")
+        await send_text(to=phone, body=render.confirm_uncertain_text(session.page))
+
+
+async def _next_page(phone: str, session: Session) -> None:
+    if session.current + 1 < session.total:
         session.current += 1
-    if session.current < len(session.pages):
-        session.state = State.REVIEW
-        await send_text(to=phone, body=note)
-        await _send_current_page(phone, session)
+        await send_text(to=phone, body=f"✅ Page {session.current} confirmée.")
+        await _show_page(phone, session)
+        return
+    await _finish(phone, session)
+
+
+async def _finish(phone: str, session: Session) -> None:
+    """Toutes les pages sont vues : le dossier est validé, puis rattaché à une patiente (choix explicite)."""
+    await backend.validate(session.record_id)
+    session.candidates = await backend.candidates(session.record_id)
+    session.state = State.LINK
+    await send_text(to=phone, body=render.link_text(session.record.get("patientCode", ""), session.candidates))
+
+
+# --- Patiente ---
+
+async def _on_link_choice(phone: str, session: Session, text: str) -> None:
+    n = len(session.candidates)
+    choice = parse_choice(text)
+    create, unsure = (n + 1, n + 2) if n else (1, 2)
+    if choice is None or not 1 <= choice <= unsure:
+        await send_text(to=phone, body=f"❌ « {text.strip()[:30]} » n'est pas une des options proposées. Répondez de 1 à {unsure}.")
+        await send_text(to=phone, body=render.link_text(session.record.get("patientCode", ""), session.candidates))
         return
 
-    # Toutes les pages sont confirmées : on enregistre puis on envoie le récapitulatif
-    if not advance:
-        await send_text(to=phone, body=note)  # « Page ignorée » : sinon l'utilisateur ne le saurait pas
-    if not await save_record(phone, session.pages):
-        session.current = len(session.pages) - 1
-        session.state = State.REVIEW
-        await send_text(
-            to=phone,
-            body="⚠️ Le registre n'a pas pu être enregistré. Répondez *1* pour réessayer, ou *annuler*.",
-        )
-        return
-    logger.info("Record confirmed by %s (%d page(s))", mask_phone(phone), len(session.pages))
-    await send_text(to=phone, body=render.final_text(session.pages))
+    record_id = session.record_id
+    if choice == create:
+        await backend.link(record_id, "CREATE")
+    elif choice == unsure:
+        await backend.link(record_id, "UNSURE")
+    else:
+        await backend.link(record_id, "EXISTING", session.candidates[choice - 1]["patientId"])
+    final = await backend.get_final(record_id)   # le résultat final stocké par l'API
+    body = render.final_text(final)
+    if choice == unsure:
+        body += "\n👤 Patiente à confirmer plus tard sur le tableau de bord."
+    logger.info("Record %s validated by %s", record_id, mask_phone(phone))
+    await send_text(to=phone, body=body)
     reset_session(phone)
 
 
 # --- Correction d'un champ ---
 
-def _field_list_text(page: dict, include_empty: bool = False) -> str:
-    footer = "\n\nTapez *0* pour revenir au menu."
-    if not include_empty:
-        footer = "\n\nTapez *tout* pour voir aussi les champs vides, *0* pour revenir au menu."
-    return (
-        "✏️ *Quel champ corriger ?* Répondez avec son numéro.\n"
-        "(⚠️ = à vérifier)\n\n"
-        f"{render.values_text(page, include_empty=include_empty)}{footer}"
+async def _ask_field(phone: str, session: Session, include_empty: bool = False) -> None:
+    session.state = State.CHOOSE_FIELD
+    footer = "\n\nTapez *0* pour revenir au menu." if include_empty else \
+        "\n\nTapez *tout* pour voir aussi les champs vides, *0* pour revenir au menu."
+    await send_text(
+        to=phone,
+        body="✏️ *Quel champ corriger ?* Répondez avec son numéro.\n(⚠️ = à vérifier)\n\n"
+             f"{render.values_text(session.page, include_empty=include_empty)}{footer}",
     )
 
 
 async def _on_field_choice(phone: str, session: Session, text: str) -> None:
     norm = text.strip().lower()
     if norm in (BACK, BACK_WORD):
-        session.state = State.REVIEW
-        await _send_current_page(phone, session)
+        await _show_page(phone, session)
         return
     if norm == "tout":
-        await send_text(to=phone, body=_field_list_text(session.page, include_empty=True))
+        await _ask_field(phone, session, include_empty=True)
         return
 
-    pdef = render.page_def_for(session.page)
     number = parse_choice(text)
-    fdef = pdef.by_number(number) if number is not None else None
-    if fdef is None:
+    nf = render.by_number(session.page, number) if number is not None else None
+    if nf is None:
+        total = len(render.numbered_fields(session.page))
         await send_text(
             to=phone,
-            body=f"❌ « {text.strip()[:30]} » n'est pas un numéro de champ de cette page (1 à {len(pdef.fields)}). "
+            body=f"❌ « {text.strip()[:30]} » n'est pas un numéro de champ de cette page (1 à {total}). "
                  "Répondez avec le numéro, ou *0* pour revenir.",
         )
         return
 
-    session.edit_field = fdef
+    session.edit_key = nf.key
     session.state = State.EDIT_VALUE
-    current = render.format_value(fdef.kind, session.page["fields"].get(fdef.id, {}))
+    options = nf.field.get("options")
+    choices = f"\nCases sur la page : {', '.join(options)}." if options else ""
     await send_text(
         to=phone,
-        body=f"✏️ *{fdef.label}* (actuel : {current})\n"
-             f"Envoyez la nouvelle valeur : {render.KIND_HINTS.get(fdef.kind, 'une valeur')}.\n"
+        body=f"✏️ *{nf.label}* (actuel : {render.format_value(nf.kind, nf.field)}){choices}\n"
+             f"Envoyez la nouvelle valeur : {render.KIND_HINTS.get(nf.kind, 'une valeur')}.\n"
              "Tapez *?* si l'information est inconnue, *-* si la case est vide, *retour* pour revenir.",
     )
 
 
 async def _on_new_value(phone: str, session: Session, text: str) -> None:
-    fdef = session.edit_field
-    if text.strip().lower() == BACK_WORD or fdef is None:
-        session.state = State.REVIEW
-        session.edit_field = None
-        await _send_current_page(phone, session)
+    key = session.edit_key
+    fields = session.page.get("fields", {})
+    if text.strip().lower() == BACK_WORD or key not in fields:
+        session.edit_key = None
+        await _show_page(phone, session)
         return
+    nf = next(f for f in render.numbered_fields(session.page) if f.key == key)
     try:
-        value, status = render.parse_value(fdef.kind, text)
+        value, status = render.parse_value(nf.kind, text)
     except ValueError as exc:
         await send_text(
             to=phone,
-            body=f"❌ Format non reconnu pour *{fdef.label}*. Attendu : {exc}.\nRéessayez, ou tapez *retour* pour revenir.",
+            body=f"❌ Format non reconnu pour *{nf.label}*. Attendu : {exc}.\nRéessayez, ou tapez *retour* pour revenir.",
         )
         return
 
-    fields = session.page["fields"]
-    previous = fields.get(fdef.id, {}).get("value")
-    fields[fdef.id] = {"value": value, "status": status, "confidence": 1.0, "source": "sage-femme", "previous": previous}
-    session.state = State.REVIEW
-    session.edit_field = None
-    await send_text(to=phone, body=f"✅ *{fdef.label}* : {render.format_value(fdef.kind, fields[fdef.id])}")
-    await _send_current_page(phone, session)
+    updated = await backend.set_field(session.record_id, session.page["index"], key, phone, value, status)
+    fields[key] = updated
+    session.edit_key = None
+    await send_text(to=phone, body=f"✅ *{nf.label}* : {render.format_value(nf.kind, updated)}")
+    await _show_page(phone, session)

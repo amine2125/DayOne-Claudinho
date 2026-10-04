@@ -1,6 +1,14 @@
-"""Client de notre API d'analyse (OUR_API_URL) et d'enregistrement (CONFIRM_URL)."""
+"""Client de l'API DayOne (api/main.py) : dossiers, lecture, vérification, liaison patiente.
 
+Le bot ne lit rien lui-même : il envoie les photos à l'API, qui les lit avec dayone.extract,
+les garde chiffrées dans la base et les montre au tableau de bord (web/).
+"""
+
+import asyncio
+import hashlib
+import hmac
 import logging
+import time
 
 import httpx
 
@@ -8,91 +16,115 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-
-class AnalysisError(Exception):
-    """Échec d'analyse d'une page ; le message est destiné à l'utilisateur."""
-
-
-def _auth_headers() -> dict:
-    key = get_settings().OUR_API_KEY
-    return {"Authorization": f"Bearer {key}", "X-API-Key": key} if key else {}
+POLL_SECONDS = 2.0
+READ_STATES = ("NEEDS_REVIEW", "PROCESSING_FAILED")  # la lecture est finie dans ces états
 
 
-def _extract_page(data) -> dict | None:
-    """Accepte la sortie DayOne brute, ou enveloppée dans `prediction` / `result`."""
-    if not isinstance(data, dict):
-        return None
-    for candidate in (data, data.get("prediction"), data.get("result")):
-        if isinstance(candidate, dict) and isinstance(candidate.get("fields"), dict):
-            return candidate
-    return None
+class ApiError(Exception):
+    """Échec d'un appel à l'API ; le message est destiné à l'utilisateur."""
 
 
-async def analyze_page(image_bytes: bytes, mime_type: str, user_phone: str, caption: str | None = None) -> dict:
-    """Envoie une photo à OUR_API_URL et retourne la page analysée (format DayOne).
+def midwife_id(phone: str) -> str:
+    """Identifiant stable de la sage-femme, sans son numéro (HMAC avec APP_SECRET : non réversible)."""
+    key = (get_settings().APP_SECRET or "dayone").encode()
+    return "wa-" + hmac.new(key, phone.encode(), hashlib.sha256).hexdigest()[:10]
 
-    Raises:
-        AnalysisError: message prêt à être montré à l'utilisateur.
-    """
+
+def _client(timeout: float = 30.0) -> httpx.AsyncClient:
     settings = get_settings()
-    if not settings.OUR_API_URL:
-        logger.error("OUR_API_URL is not configured in settings.")
-        raise AnalysisError("Le service d'analyse n'est pas encore configuré.")
+    headers = {"Authorization": f"Bearer {settings.OUR_API_KEY}"} if settings.OUR_API_KEY else {}
+    return httpx.AsyncClient(base_url=settings.DAYONE_API_URL, headers=headers,
+                             timeout=httpx.Timeout(timeout, connect=10.0))
 
-    ext = "png" if "png" in mime_type else "jpg"
-    files = {"file": (f"page.{ext}", image_bytes, mime_type)}
-    data = {"user_phone": user_phone}
-    if caption:
-        data["caption"] = caption
 
+async def _call(method: str, path: str, **kwargs):
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(settings.OUR_API_TIMEOUT, connect=10.0)) as client:
-            logger.info("Forwarding image to backend API: %s", settings.OUR_API_URL)
-            response = await client.post(settings.OUR_API_URL, files=files, data=data, headers=_auth_headers())
-    except httpx.TimeoutException:
-        logger.error("Timeout while calling backend API (%s)", settings.OUR_API_URL)
-        raise AnalysisError("La lecture a pris trop de temps.") from None
+        async with _client() as client:
+            response = await client.request(method, path, **kwargs)
     except httpx.HTTPError as exc:
-        logger.error("Failed to reach backend API (%s): %s", settings.OUR_API_URL, exc)
-        raise AnalysisError("Le service d'analyse est injoignable.") from None
-
-    if 400 <= response.status_code < 500:
-        # Erreur « métier » (photo floue, page non reconnue…) : l'API explique, on relaie
-        logger.warning("Backend API refused the page (%s): %s", response.status_code, response.text[:200])
+        logger.error("DayOne API unreachable (%s %s): %s", method, path, exc)
+        raise ApiError("Le service DayOne est injoignable. Réessayez dans quelques minutes.") from None
+    if response.status_code in (404, 409, 413, 422):
+        # Refus « métier » (transition impossible, image trop lourde…) : l'API explique, on relaie
         try:
             detail = response.json().get("detail")
-        except Exception:
+        except ValueError:
             detail = None
-        raise AnalysisError(detail if isinstance(detail, str) and detail else "La page n'a pas pu être lue.")
+        logger.warning("DayOne API refused %s %s (%s): %s", method, path, response.status_code, response.text[:200])
+        raise ApiError(detail if isinstance(detail, str) else "La demande a été refusée.")
     if response.is_error:
-        logger.error("Backend API returned status error %s: %s", response.status_code, response.text[:200])
-        raise AnalysisError("Une erreur est survenue pendant la lecture.")
-
-    try:
-        page = _extract_page(response.json())
-    except ValueError:
-        page = None
-    if page is None:
-        logger.error("Backend API returned an unexpected payload: %s", response.text[:200])
-        raise AnalysisError("La réponse du service d'analyse est inattendue.")
-    return page
+        logger.error("DayOne API error %s on %s %s: %s", response.status_code, method, path, response.text[:200])
+        raise ApiError("Une erreur est survenue côté DayOne. Réessayez plus tard.")
+    return response.json()
 
 
-async def save_record(user_phone: str, pages: list[dict]) -> bool:
-    """Transmet le registre confirmé à CONFIRM_URL (si configurée). Retourne False en cas d'échec."""
-    settings = get_settings()
-    if not settings.CONFIRM_URL:
-        logger.info("CONFIRM_URL not configured: confirmed record kept in conversation only.")
-        return True
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-            response = await client.post(
-                settings.CONFIRM_URL,
-                json={"user_phone": user_phone, "pages": pages},
-                headers=_auth_headers(),
-            )
-            response.raise_for_status()
-        return True
-    except httpx.HTTPError as exc:
-        logger.error("Failed to save confirmed record to CONFIRM_URL: %s", exc)
-        return False
+def _file(name: str, photo: tuple[bytes, str]) -> tuple:
+    data, mime = photo
+    return (name, data, mime)
+
+
+async def create_record(photo: tuple[bytes, str], phone: str) -> str:
+    """Dossier créé dès la 1re photo : elle est enregistrée (chiffrée) et sa lecture commence."""
+    files = [("files", _file("page1.jpg", photo))]
+    return (await _call("POST", "/api/records", files=files, data={"midwife_id": midwife_id(phone)}))["id"]
+
+
+async def add_page(record_id: str, photo: tuple[bytes, str]) -> int:
+    """Page suivante : enregistrée tout de suite, lue en arrière-plan."""
+    return (await _call("POST", f"/api/records/{record_id}/pages", files={"file": _file("page.jpg", photo)}))["index"]
+
+
+async def set_code(record_id: str, code: str) -> str:
+    return (await _call("POST", f"/api/records/{record_id}/code", json={"code": code}))["patientCode"]
+
+
+async def get_final(record_id: str) -> dict:
+    """Résultat final stocké par l'API à la validation (complété par la patiente choisie)."""
+    return await _call("GET", f"/api/records/{record_id}/final")
+
+
+async def get_record(record_id: str) -> dict:
+    return await _call("GET", f"/api/records/{record_id}")
+
+
+async def wait_until_read(record_id: str, pages: int = 1) -> dict:
+    """Attend la fin de la lecture (l'API lit en arrière-plan, une page à la fois)."""
+    deadline = time.monotonic() + get_settings().READ_TIMEOUT_PER_PAGE * max(pages, 1)
+    while True:
+        record = await get_record(record_id)
+        if record["state"] in READ_STATES and not record.get("busy"):
+            return record
+        if time.monotonic() > deadline:
+            logger.error("Reading of %s timed out (state=%s)", record_id, record["state"])
+            raise ApiError("La lecture prend plus de temps que prévu. Le dossier reste visible sur le tableau de bord.")
+        await asyncio.sleep(POLL_SECONDS)
+
+
+async def replace_page(record_id: str, index: int, photo: tuple[bytes, str]) -> None:
+    await _call("POST", f"/api/records/{record_id}/pages/{index}/photo", files={"file": _file("page.jpg", photo)})
+
+
+async def drop_page(record_id: str, index: int) -> None:
+    await _call("POST", f"/api/records/{record_id}/pages/{index}/drop")
+
+
+async def set_field(record_id: str, index: int, key: str, phone: str, value, status: str) -> dict:
+    body = {"by": midwife_id(phone), "value": value, "status": status}
+    return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields/{key}", json=body)
+
+
+async def confirm_field(record_id: str, index: int, key: str, phone: str) -> dict:
+    body = {"by": midwife_id(phone), "confirm": True}
+    return await _call("POST", f"/api/records/{record_id}/pages/{index}/fields/{key}", json=body)
+
+
+async def validate(record_id: str) -> None:
+    await _call("POST", f"/api/records/{record_id}/validate")
+
+
+async def candidates(record_id: str) -> list[dict]:
+    return await _call("GET", f"/api/records/{record_id}/candidates")
+
+
+async def link(record_id: str, decision: str, patient_id: str | None = None) -> None:
+    await _call("POST", f"/api/records/{record_id}/link", json={"decision": decision, "patient_id": patient_id})
