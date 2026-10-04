@@ -25,3 +25,8 @@ web/dist/
 
 # Secrets
 .env
+
+# Données locales et clé de chiffrement
+.device_secure_key
+*.db
+offline_captures/
