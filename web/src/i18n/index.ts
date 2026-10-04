@@ -61,7 +61,10 @@ export function formatValue(t: T, kind: FieldKind | undefined, value: FieldValue
     case 'weeks':
       return `${value} ${t.lang === 'fr' ? 'SA' : 'wk'}`
     case 'weight':
-      return `${value} g`
+      // The reading keeps weights in grams; a mother's weight reads better in kg.
+      return typeof value === 'number' && value >= 10_000
+        ? `${(value / 1000).toLocaleString(t.lang === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 1 })} kg`
+        : `${value} g`
     case 'length':
       return `${value} cm`
     case 'sex':

@@ -18,7 +18,15 @@ SHOWN_STATUSES = ("KNOWN", "UNKNOWN", "NEEDS_REVIEW", "ILLEGIBLE")
 # Statuts qui demandent l'œil de la sage-femme (les mêmes que l'API : store.TO_REVIEW)
 UNCERTAIN_STATUSES = ("NEEDS_REVIEW", "ILLEGIBLE")
 
-PAGE_NAMES = {"identification_antecedents": "Identification et antécédents", "accouchement": "Accouchement"}
+PAGE_NAMES = {
+    "identification_antecedents": "Identification et antécédents",
+    "accouchement": "Accouchement",
+    "grossesse_actuelle": "Grossesse actuelle",
+    "postpartum_precoce_mere": "Post-partum précoce · mère",
+    "postpartum_precoce_nouveau_ne": "Post-partum précoce · nouveau-né",
+    "postpartum_tardif_mere": "Post-partum tardif · mère",
+    "postpartum_tardif_nouveau_ne": "Post-partum tardif · nouveau-né",
+}
 UNITS = {"weight": "g", "length": "cm", "weeks": "SA"}
 NUMERIC_KINDS = ("integer", "weight", "length", "weeks")
 UNKNOWN_WORDS = {"?", "??", "inconnu", "inconnue", "nsp", "ne sait pas"}
@@ -28,7 +36,7 @@ YES_WORDS = {"oui", "o", "x", "coché", "coche", "vrai", "yes"}
 NO_WORDS = {"non", "n", "faux", "no", "pas coché"}
 KIND_HINTS = {
     "integer": "un nombre (ex. 3)",
-    "weight": "un poids en grammes (ex. 3250)",
+    "weight": "un poids (ex. 3250 g, ou 62,5 kg pour la mère)",
     "length": "une longueur en cm (ex. 34)",
     "weeks": "un nombre de semaines (ex. 39)",
     "date": "une date JJ/MM/AAAA (ex. 06/02/2026)",
@@ -42,6 +50,7 @@ REASONS = {
     "champ_nouveau": "champ inconnu du registre",
     "choix_nouveau": "case inconnue du registre",
     "valeur_douteuse": "lecture incertaine",
+    "incoherent": "ne colle pas avec le reste du registre",
 }
 LINK_REASONS = {
     "SAME_CODE": "même code",
@@ -107,6 +116,8 @@ def format_value(kind: str, field: dict) -> str:
         return f"{d}/{m}/{y}"
     if kind == "sex":
         return {"F": "Féminin", "M": "Masculin"}.get(str(value).upper(), str(value))
+    if kind == "weight" and isinstance(value, (int, float)) and value >= 10_000:
+        return f"{value / 1000:.1f}".rstrip("0").rstrip(".").replace(".", ",") + " kg"   # poids de la mère
     if kind in UNITS:
         return f"{value} {UNITS[kind]}"
     return str(value)
@@ -133,6 +144,14 @@ def parse_value(kind: str, text: str) -> tuple[object, str]:
             # Règle DayOne : une case non cochée n'est jamais `false`, elle est NOT_PROVIDED
             return None, "NOT_PROVIDED"
         raise ValueError(KIND_HINTS["checkbox"])
+    if kind == "weight":
+        # Grammes (nouveau-né) ou kilos (mère) : « 3250 », « 3250 g », « 62,5 kg », « 62.5 » -> grammes.
+        m = re.fullmatch(r"(\d{1,6}(?:[.,]\d{1,3})?)\s*(kg|g)?", low)
+        if not m:
+            raise ValueError(KIND_HINTS["weight"])
+        n = float(m.group(1).replace(",", "."))
+        in_kg = m.group(2) == "kg" or (m.group(2) is None and n < 300)
+        return int(round(n * 1000 if in_kg else n)), "KNOWN"
     if kind in NUMERIC_KINDS:
         m = re.fullmatch(r"(\d{1,5})(?:\s*(?:g|cm|sa|semaines?|ans?))?", low)
         if not m:
@@ -207,6 +226,8 @@ def confirm_uncertain_text(page: dict) -> str:
     listed = "\n".join(
         f"• {nf.number}. {nf.label} : *{format_value(nf.kind, nf.field)}*"
         + (f" ({REASONS[nf.field['reason']]})" if nf.field.get("reason") in REASONS else "")
+        # Contrôle de cohérence : on dit pourquoi (« Rendez-vous 29/01/2025 : avant la visite du 01/11/2025 »).
+        + "".join(f"\n   ↳ {a['text']}" for a in nf.field.get("alerts", [])[:1])
         for nf in doubts[:15]
     )
     return (

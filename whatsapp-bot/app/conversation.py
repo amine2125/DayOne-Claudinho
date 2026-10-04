@@ -133,10 +133,10 @@ async def handle_text(phone: str, text: str) -> None:
             await send_text(to=phone, body=f"⚠️ {exc}")
 
 
-async def handle_image(phone: str, media_id: str, caption: str | None) -> None:
-    # Téléchargement immédiat, hors verrou : l'URL Meta expire après ~5 minutes
+async def handle_image(phone: str, media_url: str, caption: str | None) -> None:
+    # Téléchargement immédiat, hors verrou : une photo ne patiente pas derrière la lecture de la précédente
     try:
-        image = await download_media(media_id)
+        image = await download_media(media_url)
     except Exception as exc:
         logger.error("Media download failed for %s: %s", mask_phone(phone), exc)
         await send_text(to=phone, body="⚠️ Impossible de récupérer la photo. Renvoyez-la, s'il vous plaît.")

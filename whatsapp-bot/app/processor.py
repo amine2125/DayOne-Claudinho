@@ -39,26 +39,24 @@ def is_duplicate_message(message_id: str) -> bool:
 
 def interactive_reply_id(message: dict) -> str:
     """Id du bouton (ou de la ligne de liste) cliqué par l'utilisateur."""
-    interactive = message.get("interactive", {})
-    reply = interactive.get("button_reply") or interactive.get("list_reply") or {}
-    return reply.get("id", "")
+    return message.get("reply", {}).get("id", "")
 
 
 async def process_message(message: dict) -> None:
     """Entry point to process a single incoming WhatsApp message in background.
 
-    Never raises: a failure (Meta down, expired token…) is logged, the server keeps running.
+    Never raises: a failure (Vonage down, wrong credentials…) is logged, the server keeps running.
     """
     try:
         await _process_message(message)
     except Exception as exc:
-        logger.exception("Failed to handle message %s: %s", message.get("id"), exc)
+        logger.exception("Failed to handle message %s: %s", message.get("message_uuid"), exc)
 
 
 async def _process_message(message: dict) -> None:
-    message_id = message.get("id")
+    message_id = message.get("message_uuid")
     user_phone = message.get("from")
-    msg_type = message.get("type")
+    msg_type = message.get("message_type")
 
     if not message_id or not user_phone:
         logger.warning("Received invalid message payload (id=%s, type=%s)", message_id, msg_type)
@@ -71,17 +69,17 @@ async def _process_message(message: dict) -> None:
 
     if msg_type == "image":
         image_info = message.get("image", {})
-        media_id = image_info.get("id")
-        if not media_id:
-            logger.error("Message type is image but media_id is missing (id=%s)", message_id)
+        media_url = image_info.get("url")
+        if not media_url:
+            logger.error("Message type is image but media url is missing (id=%s)", message_id)
             await send_text(to=user_phone, body="⚠️ Impossible de récupérer la photo. Veuillez réessayer.")
             return
-        await conversation.handle_image(user_phone, media_id, image_info.get("caption"))
+        await conversation.handle_image(user_phone, media_url, image_info.get("caption"))
 
     elif msg_type == "text":
-        await conversation.handle_text(user_phone, message.get("text", {}).get("body", ""))
+        await conversation.handle_text(user_phone, message.get("text", ""))
 
-    elif msg_type == "interactive":
+    elif msg_type == "reply":
         await conversation.handle_text(user_phone, interactive_reply_id(message))
 
     else:

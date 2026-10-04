@@ -25,6 +25,9 @@
     --color-blank-soft: var(--st-blank-soft);
     --color-info: var(--st-info);
     --color-info-soft: var(--st-info-soft);
+    --color-viz-1: var(--viz-1);
+    --color-viz-2: var(--viz-2);
+    --color-viz-missing: var(--viz-missing);
     --color-paper: var(--paper);
     --color-chat: var(--chat);
     --color-bubble-out: var(--bubble-out);
@@ -118,12 +121,21 @@
     --st-info: oklch(0.5 0.13 245);
     --st-info-soft: oklch(0.95 0.03 245);
 
+    /* Chart marks (validated: lightness band, chroma floor, CVD separation, contrast vs card).
+       Two categorical slots in fixed order; "missing" is a neutral, never a category hue. */
+    --viz-1: oklch(0.6 0.115 200);
+    --viz-2: oklch(0.5 0.15 295);
+    --viz-missing: oklch(0.82 0.008 250);
+
     /* WhatsApp-like chat surfaces */
     --chat: oklch(0.93 0.015 85);
     --bubble-out: oklch(0.93 0.07 145);
 }
 
 .dark {
+    --viz-1: oklch(0.64 0.11 200);
+    --viz-2: oklch(0.64 0.14 295);
+    --viz-missing: oklch(0.42 0.008 250);
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);

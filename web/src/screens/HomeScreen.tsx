@@ -60,6 +60,7 @@ function urgency(t: T, f: FollowUp): string {
 
 function why(t: T, f: FollowUp): string {
   if (!f.anchor) return ''
+  if (f.anchor.kind === 'WRITTEN') return t('why.written', { date: t.date(f.anchor.date) })
   if (f.step === 'ANTENATAL') return t('why.antenatal', { n: FOLLOW_UP.antenatalEveryDays, date: t.date(f.anchor.date) })
   const s = FOLLOW_UP.postpartum.find((x) => x.step === f.step)
   return s ? t('why.postpartum', { n: s.dueDaysAfterDelivery, date: t.date(f.anchor.date) }) : t('why.done', { date: t.date(f.anchor.date) })

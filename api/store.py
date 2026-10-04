@@ -31,6 +31,7 @@ import cv2
 import numpy as np
 from cryptography.fernet import Fernet
 
+from dayone import coherence, suivi
 from dayone import page as page_image
 from dayone import privacy
 from dayone.dataset import ROOT
@@ -218,11 +219,14 @@ def _reference_labels() -> dict:
 
 
 def page_type_of(pred: dict) -> str:
-    """Fiche de référence dont la page lue partage le plus de libellés ; `unknown` sinon."""
+    """Fiche de référence dont la page lue partage le plus de libellés ; sinon une autre page du registre
+    reconnue à ses lignes imprimées (« Venue le », « HU (cm) », « Pouls »…, dayone/suivi.py) ; `unknown` sinon."""
     labels = {fold(f["label"]) for f in pred["fields"]}
     scores = {pt: len(labels & ref.keys()) for pt, ref in _reference_labels().items()}
     best = max(scores, key=scores.get)
-    return best if scores[best] >= MIN_REFERENCE_MATCHES else UNKNOWN_PAGE
+    if scores[best] >= MIN_REFERENCE_MATCHES:
+        return best
+    return suivi.page_type_from_labels(pred["fields"]) or UNKNOWN_PAGE
 
 
 def fields_from_prediction(pred: dict, page_index: int, at: str) -> dict:
@@ -248,7 +252,9 @@ def fields_from_prediction(pred: dict, page_index: int, at: str) -> dict:
             "history": [{"at": at, "by": "AI", "origin": origin, "value": p["value"], "status": p["status"]}],
         }
         # Détails de la lecture, utiles à la sage-femme : cases proposées, raison du doute, lecture d'origine
-        for src, dst in (("options", "options"), ("raison", "reason"), ("valeur_lue", "readValue")):
+        # et colonne du tableau (une visite par colonne dans « Grossesse actuelle »)
+        for src, dst in (("options", "options"), ("raison", "reason"), ("valeur_lue", "readValue"),
+                         ("colonne", "column")):
             if p.get(src) is not None:
                 field[dst] = p[src]
         out[key] = field
@@ -262,6 +268,45 @@ def _load_fields(row) -> dict:
 def _save_fields(c, page_id: str, fields: dict) -> None:
     blob = fernet().encrypt(json.dumps(fields, ensure_ascii=False).encode())
     c.execute("UPDATE pages SET fields_enc = ? WHERE id = ?", (blob, page_id))
+
+
+# Dossier encore en vérification : ses champs peuvent changer de statut. Un dossier validé est figé.
+OPEN_STATES = ("CAPTURED", "PENDING_AI", "AI_PROCESSED", "NEEDS_REVIEW", "MANUAL_REVIEW_REQUIRED")
+
+
+def _recheck(c, record_id: str) -> None:
+    """Contrôles de cohérence de la lecture sur toutes les pages lues du dossier (dayone/coherence.py).
+
+    Une valeur lue par l'IA qui contredit le reste du registre passe « à vérifier » avec son explication ;
+    l'agent WhatsApp la fait donc vérifier. Une correction qui lève la contradiction rend son statut au champ.
+    """
+    state = c.execute("SELECT state FROM records WHERE id = ?", (record_id,)).fetchone()["state"]
+    if state not in OPEN_STATES:
+        return
+    rows = c.execute("""SELECT * FROM pages WHERE record_id = ? AND fields_enc IS NOT NULL ORDER BY idx""",
+                     (record_id,)).fetchall()
+    pages = [(r["idx"], _page_type(r["page_type"], fields), fields) for r in rows for fields in [_load_fields(r)]]
+    alerts = coherence.check_record(pages)
+    for row, (idx, _, fields) in zip(rows, pages):
+        if coherence.apply(fields, {key: a for (i, key), a in alerts.items() if i == idx}):
+            _save_fields(c, row["id"], fields)
+
+
+def recheck_open_records() -> int:
+    """Au démarrage : dossiers lus avant l'ajout des contrôles, encore en vérification."""
+    with db() as c:
+        ids = [r["id"] for r in c.execute(
+            f"SELECT id FROM records WHERE state IN ({','.join('?' * len(OPEN_STATES))})", OPEN_STATES)]
+        for record_id in ids:
+            _recheck(c, record_id)
+    return len(ids)
+
+
+def _page_type(stored: str | None, fields: dict) -> str:
+    """Type enregistré ; une page lue avant la reconnaissance des autres pages du registre est reconnue ici."""
+    if stored and stored != UNKNOWN_PAGE:
+        return stored
+    return (suivi.page_type_from_labels(fields) if fields else None) or UNKNOWN_PAGE
 
 
 # ---------------- capture et lecture ----------------
@@ -386,6 +431,8 @@ def process_record(record_id: str, extract=None, use_model: bool = True) -> None
                                  error = NULL WHERE id = ?""",
                               (page_type_of(pred), view_path, size[0], size[1], _encrypt_text(pred.get("title")), p["id"]))
                     _save_fields(c, p["id"], fields_from_prediction(pred, p["idx"], at))
+                if results:
+                    _recheck(c, record_id)
                 state = c.execute("SELECT state FROM records WHERE id = ?", (record_id,)).fetchone()["state"]
                 waiting = c.execute("""SELECT COUNT(*) FROM pages WHERE record_id = ? AND fields_enc IS NULL
                                        AND error IS NULL""", (record_id,)).fetchone()[0]
@@ -486,8 +533,14 @@ def set_field(record_id: str, page_index: int, key: str, by: str,
             same = value == f["value"] and status == f["status"]
             f["origin"] = "MANUAL" if f["origin"] == "MANUAL" else ("CONFIRMED" if same else "CORRECTED")
             f["value"], f["status"] = value, status
+        # La sage-femme a regardé le papier : l'alerte de cohérence de ce champ est levée.
+        f.pop("alerts", None)
+        f.pop("coherence", None)
+        if f.get("reason") == "incoherent":
+            f.pop("reason")
         f["history"].append({"at": now(), "by": by, "origin": f["origin"], "value": f["value"], "status": f["status"]})
         _save_fields(c, row["id"], fields)
+        _recheck(c, record_id)          # une correction peut lever (ou révéler) une incohérence ailleurs
         return f
 
 
@@ -670,9 +723,14 @@ def _record_dict(c, r, image_url) -> dict:
     """Un dossier au format du contrat front (web/src/contract/types.ts)."""
     pages = []
     for p in c.execute("SELECT * FROM pages WHERE record_id = ? ORDER BY idx", (r["id"],)).fetchall():
-        page = {"id": p["id"], "index": p["idx"], "pageType": p["page_type"] or UNKNOWN_PAGE,
+        fields = _load_fields(p)
+        page_type = _page_type(p["page_type"], fields)
+        page = {"id": p["id"], "index": p["idx"], "pageType": page_type,
                 "imageSize": [p["image_w"] or 1654, p["image_h"] or 2339], "capturedAt": p["captured_at"],
-                "quality": {"ok": p["error"] is None}, "fields": _load_fields(p)}
+                "quality": {"ok": p["error"] is None}, "fields": fields}
+        measures = suivi.series(page_type, fields)
+        if measures:
+            page["series"] = measures       # mesures suivies (courbes), tirées des champs à chaque lecture
         if p["title"]:
             page["title"] = fernet().decrypt(p["title"].encode()).decode()
         if p["error"]:

@@ -1,6 +1,6 @@
 """Parcours WhatsApp de bout en bout, contre la vraie API DayOne (api/main.py) lancée dans le test.
 
-Seuls Meta (envoi/téléchargement) est simulé. La lecture est le mode démo de l'API : elle rejoue
+Seul Vonage (envoi/téléchargement) est simulé. La lecture est le mode démo de l'API : elle rejoue
 les vraies sorties de dayone.extract enregistrées dans outputs/predictions/.
 """
 
@@ -22,7 +22,7 @@ PHONE = "33612345678"
 
 
 class FakeWhatsApp:
-    """Remplace Meta : enregistre ce que le bot envoie, fournit les photos."""
+    """Remplace Vonage : enregistre ce que le bot envoie, fournit les photos."""
 
     def __init__(self):
         self.sent: list[str] = []
@@ -35,8 +35,8 @@ class FakeWhatsApp:
         self.sent.append(body)
         self.buttons.append([bid for bid, _ in buttons])
 
-    async def download_media(self, media_id):
-        return media_id.encode(), "image/jpeg"   # octets = id du média : choisit la sortie démo
+    async def download_media(self, media_url):
+        return media_url.encode(), "image/jpeg"   # octets = « URL » du média : choisit la sortie démo
 
     @property
     def last(self) -> str:
@@ -48,9 +48,9 @@ class FakeWhatsApp:
 
 @pytest.fixture
 def wa(monkeypatch, tmp_path):
-    monkeypatch.setenv("WHATSAPP_TOKEN", "test")
-    monkeypatch.setenv("PHONE_NUMBER_ID", "123")
-    monkeypatch.setenv("APP_SECRET", "secret")
+    monkeypatch.setenv("VONAGE_API_KEY", "test")
+    monkeypatch.setenv("VONAGE_WHATSAPP_NUMBER", "123")
+    monkeypatch.setenv("MIDWIFE_ID_SECRET", "secret")
     monkeypatch.setenv("DAYONE_DEMO_EXTRACT", "1")
     get_settings.cache_clear()
     # Base temporaire
@@ -74,8 +74,8 @@ async def text(body: str):
     await conversation.handle_text(PHONE, body)
 
 
-async def photo(media_id: str = "page-a"):
-    await conversation.handle_image(PHONE, media_id, None)
+async def photo(media_url: str = "page-a"):
+    await conversation.handle_image(PHONE, media_url, None)
 
 
 async def start_review(wa, pages=("page-a",), code="AMN-27"):
@@ -400,7 +400,7 @@ def test_link_text_numbers_beyond_nine():
 
 
 def test_midwife_id_hides_phone(monkeypatch):
-    monkeypatch.setenv("APP_SECRET", "s")
+    monkeypatch.setenv("MIDWIFE_ID_SECRET", "s")
     get_settings.cache_clear()
     mid = backend.midwife_id(PHONE)
     assert mid.startswith("wa-") and PHONE not in mid and mid == backend.midwife_id(PHONE)

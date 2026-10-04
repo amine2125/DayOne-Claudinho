@@ -26,7 +26,7 @@ from statistics import median
 
 import numpy as np
 
-from dayone import imaging, ocr, page, vlm
+from dayone import coherence, imaging, ocr, page, vlm
 from dayone.normalize import ARABIC, comparable, fold, infer_kind, parse, restore_missing_letters, special_word
 from dayone.privacy import is_personal, is_record_label, looks_like_cin, redact, same_identifier
 from dayone.schema import make_field, validate_prediction
@@ -122,6 +122,8 @@ def extract_page(source, use_model: bool = True, model: str = vlm.DEFAULT_MODEL,
             dropped["personnels"] += 1
             continue
         field, needs_model = _from_ocr(img, c, threshold, blue_page, bm)
+        if "col" in c:
+            field["colonne"] = c["col"]
         fields.append(field)
         if needs_model:
             doubtful.append((field, c))
@@ -257,23 +259,74 @@ def _table_cells(img, region, lines, used) -> list[dict] | None:
         if r is not None and c is not None:
             grid[r][c].append(l)
             used.add(l["i"])
-    header = [_join(grid[0][c])[0] for c in range(len(xs) - 1)]
-    data_rows = range(1, len(ys) - 1)
+    header, first = _table_header(img, grid, ys, xs)
+    # Écriture dans les rangées d'en-tête : ce n'est pas un intitulé ; elle reste à lire (écriture non rattachée).
+    for r in range(first):
+        for cell in grid[r]:
+            used.difference_update(l["i"] for l in cell if l["hand"])
+    data_rows = range(first, len(ys) - 1)
     # Première colonne = étiquettes de ligne s'il y a plusieurs lignes de données et qu'elle n'est pas manuscrite.
     first_col_hand = any(l["hand"] for r in data_rows for l in grid[r][0])
     row_labels = len(data_rows) >= 2 and not first_col_hand
     out = []
     for r in data_rows:
         row_label = _join(grid[r][0])[0] if row_labels else ""
-        for c in range(1 if row_labels else 0, len(xs) - 1):
+        cells = range(1 if row_labels else 0, len(xs) - 1)
+        # Bandeau de section (« EXAMEN CLINIQUE », « TRAITEMENT ») : un intitulé, aucune cellule à lire.
+        if _band_title(row_label) and not any(grid[r][c] for c in cells):
+            continue
+        for c in cells:
             col = header[c]
             if not col and not row_label:
                 continue
             label = f"{row_label} | {col}" if row_label and col else (col or row_label)
             text, score = _join(grid[r][c])
             box = (xs[c] + 3, ys[r] + 3, xs[c + 1] - 3, ys[r + 1] - 3)
-            out.append({"label": label.strip(" :"), "text": text, "score": score, "box": box})
+            # Colonne (1 = 1re colonne de valeurs) : relie les cellules d'une même visite, même si
+            # l'intitulé de colonne est mal lu ou répété (« Visite 2 » dans chaque trimestre).
+            out.append({"label": label.strip(" :"), "text": text, "score": score, "box": box,
+                        "col": c if row_labels else c + 1})
     return out
+
+
+def _table_header(img, grid, ys, xs) -> tuple[list[str], int]:
+    """Intitulés de colonne et première rangée de données.
+
+    En-tête sur deux rangées : « 1er trimestre » (cellule fusionnée sur 3 colonnes) au-dessus de
+    « Visite 1 | Visite 2 | Visite 3 ». Chaque colonne prend les deux : « 1er trimestre - Visite 2 ».
+    """
+    n_cols = len(xs) - 1
+    top = [_printed_text(grid[0][c]) for c in range(n_cols)]
+    if len(ys) - 1 < 4 or n_cols < 3:
+        return top, 1
+    rules = imaging.vertical_rules(img, ys[0] + 3, ys[1] - 3, xs)
+    merged = not all(rules[1:-1])
+    second = grid[1]
+    printed = [c for c in range(1, n_cols) if second[c] and not any(l["hand"] for l in second[c])]
+    if not merged or any(l["hand"] for cell in second for l in cell) or len(printed) < (n_cols - 1) / 2:
+        return top, 1
+    spans, start = [], 0
+    for c in range(1, n_cols + 1):              # un trait vertical présent ferme une cellule de la rangée du haut
+        if c == n_cols or rules[c]:
+            spans.append((start, c))
+            start = c
+    parent = [""] * n_cols
+    for a, b in spans:
+        text = " ".join(t for t in top[a:b] if t)
+        for c in range(a, b):
+            parent[c] = text
+    sub = [_printed_text(second[c]) for c in range(n_cols)]
+    return [" - ".join(t for t in (parent[c], sub[c]) if t) for c in range(n_cols)], 2
+
+
+def _printed_text(cell: list[dict]) -> str:
+    return _join([l for l in cell if not l["hand"]])[0]
+
+
+def _band_title(text: str) -> bool:
+    """Intitulé de bandeau : tout en majuscules (« TRAITEMENT », « EXAMEN CLINIQUE »)."""
+    letters = [c for c in text if c.isalpha()]
+    return len(letters) >= 6 and all(c.isupper() for c in letters)
 
 
 def _checkboxes(img, lines, th, tables, bm=None):
@@ -710,18 +763,42 @@ def _from_ocr(img, c: dict, threshold: float, blue_page: bool = False, bm=None) 
         if imaging.ink_pixels(img, c["box"], blue_only=blue_page, bm=bm) >= MIN_INK:
             return {**base, **make_field(None, "NEEDS_REVIEW", 0.3, source="ocr")}, True   # encre sans texte lu
         return {**base, **make_field(None, "NOT_PROVIDED", 0.9, source="ocr")}, False
+    read_as = None
+    if re.search(PIPE_DIGIT, text):
+        read_as, text = text, _pipe_reading(c["label"], text)
     word = special_word(text)
     if word == "unknown":
         return {**base, **make_field(None, "UNKNOWN", c["score"], source="ocr")}, c["score"] < SURE_SCORE
     if word == "illegible":
         return {**base, **make_field(None, "ILLEGIBLE", c["score"], source="ocr")}, False
-    value, format_ok = parse(kind, text)
+    value, format_ok = parse(kind, text, c["label"])
     if value is None:
         value = text
-    sure = c["score"] >= SURE_SCORE and format_ok and not _looks_odd(text)
+    sure = c["score"] >= SURE_SCORE and format_ok and not _looks_odd(text) and read_as is None
     conf = c["score"] * (1.0 if format_ok else 0.6) * (0.6 if _looks_odd(text) else 1.0)
+    if read_as is not None:
+        conf = min(conf, SINGLE_READER_CAP)
     status = "KNOWN" if sure and conf >= threshold else "NEEDS_REVIEW"
-    return {**base, **make_field(value, status, conf, source="ocr")}, status != "KNOWN"
+    extra = {"valeur_lue": read_as} if read_as is not None else {}
+    return {**base, **make_field(value, status, conf, source="ocr", **extra)}, status != "KNOWN"
+
+
+# « | » collé à un chiffre : un « 1 » au stylo fin, ou un reste de bordure de case.
+PIPE_DIGIT = re.compile(r"\|(?=\d)|(?<=\d)\|")
+
+
+def _pipe_reading(label: str, text: str) -> str:
+    """Choisit entre « 1 » et « bordure » : la lecture possible pour cette ligne du registre (« |51/97 » ->
+    151/97 ; « |27 » en HU -> 27). Ligne inconnue ou aucune lecture possible : « 1 », toujours à vérifier."""
+    as_one = PIPE_DIGIT.sub("1", text)
+    as_border = text.replace("|", "").strip()
+    for candidate in (as_one, as_border):
+        ok = coherence.plausible(label, candidate)
+        if ok is None and infer_kind(label) != "text":
+            ok = parse(infer_kind(label), candidate, label)[1]
+        if ok:
+            return candidate
+    return as_one
 
 
 def _combine(field: dict, c: dict, answer: str, threshold: float) -> dict:
@@ -737,7 +814,7 @@ def _combine(field: dict, c: dict, answer: str, threshold: float) -> dict:
     if special_word(a) == "unknown":
         return make_field(None, "UNKNOWN" if special_word(ocr_text) == "unknown" else "NEEDS_REVIEW", 0.5,
                           source="ocr+modele")
-    value, format_ok = parse(kind, a)
+    value, format_ok = parse(kind, a, field["label"])
     if value is None:
         value = a
     if ocr_text and comparable(kind, ocr_text) == comparable(kind, a):

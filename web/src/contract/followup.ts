@@ -33,8 +33,8 @@ export interface FollowUp {
   due?: string
   /** Positive = days late, negative = days left. */
   daysLate: number
-  /** What the due date is computed from. */
-  anchor?: { kind: 'DELIVERY' | 'LAST_VISIT'; date: string }
+  /** What the due date comes from: the appointment written on the registry, or the booklet calendar. */
+  anchor?: { kind: 'DELIVERY' | 'LAST_VISIT' | 'WRITTEN'; date: string }
 }
 
 export function bucketFor(daysLate: number): Bucket {

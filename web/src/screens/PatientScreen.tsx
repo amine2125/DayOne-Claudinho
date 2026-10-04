@@ -2,6 +2,7 @@ import {
   ArrowRightIcon,
   BookOpenIcon,
   CalendarClockIcon,
+  ChartLineIcon,
   CircleCheckIcon,
   ClipboardListIcon,
   HistoryIcon,
@@ -19,6 +20,7 @@ import { NOTED_SECTIONS, SUMMARY_FIELDS, fieldDef, isNoteworthy } from '@/contra
 import type { Field, Page, Patient, RegistryRecord } from '@/contract/types'
 import { PageImage } from '@/components/PageImage'
 import { PatientCode } from '@/components/PatientCode'
+import { Appointments, Trends } from '@/components/PatientTrends'
 import { RecordRow } from '@/components/RecordRow'
 import { StatusBadge } from '@/components/status'
 import { VisitTimeline } from '@/components/VisitTimeline'
@@ -47,10 +49,11 @@ interface Ctx {
  */
 const MODULES: { id: string; label: TKey; icon: LucideIcon; need?: Permission; soon?: boolean; render: (c: Ctx) => ReactNode }[] = [
   { id: 'summary', label: 'patient.tab.summary', icon: ClipboardListIcon, render: (c) => <Summary {...c} /> },
+  { id: 'trends', label: 'patient.tab.trends', icon: ChartLineIcon, render: (c) => <Trends state={c.state} patient={c.patient} t={c.t} /> },
   { id: 'visits', label: 'patient.tab.visits', icon: HistoryIcon, render: (c) => <Visits {...c} /> },
+  { id: 'appointments', label: 'patient.tab.appointments', icon: CalendarClockIcon, render: (c) => <Appointments state={c.state} patient={c.patient} t={c.t} /> },
   { id: 'booklet', label: 'patient.tab.booklet', icon: BookOpenIcon, render: (c) => <Booklet {...c} /> },
   { id: 'images', label: 'patient.tab.images', icon: ImagesIcon, need: 'original_image', render: (c) => <Images {...c} /> },
-  { id: 'appointments', label: 'patient.tab.appointments', icon: CalendarClockIcon, soon: true, render: (c) => <Soon text={c.t('patient.appointments.hint')} /> },
 ]
 
 export function PatientScreen() {
@@ -358,8 +361,4 @@ function Images({ records, t }: Ctx) {
       </div>
     </div>
   )
-}
-
-function Soon({ text }: { text: string }) {
-  return <div className="rounded-2xl border-2 border-dashed p-10 text-center text-muted-foreground">{text}</div>
 }

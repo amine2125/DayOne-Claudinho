@@ -1,7 +1,10 @@
-"""Meta WhatsApp Cloud API client module."""
+"""WhatsApp client over the Vonage Messages API."""
 
 import logging
+import re
 from typing import Tuple
+from urllib.parse import urlparse
+
 import httpx
 
 from app.config import get_settings
@@ -13,51 +16,53 @@ logger = logging.getLogger(__name__)
 MAX_TEXT_LENGTH = 4096
 
 
-async def download_media(media_id: str) -> Tuple[bytes, str]:
-    """Download media file from Meta WhatsApp Cloud API.
+def _auth() -> httpx.BasicAuth:
+    settings = get_settings()
+    return httpx.BasicAuth(settings.VONAGE_API_KEY, settings.VONAGE_API_SECRET)
 
-    1. Request media URL and metadata using media_id.
-    2. Download the binary stream using the temporary URL with Bearer token.
+
+def _message(to: str, **content) -> dict:
+    """Corps commun à tous les envois WhatsApp de l'API Messages."""
+    return {"channel": "whatsapp", "from": get_settings().VONAGE_WHATSAPP_NUMBER, "to": to, **content}
+
+
+async def _post(client: httpx.AsyncClient, payload: dict) -> None:
+    response = await client.post(get_settings().messages_url, json=payload)
+    if response.is_error:
+        # Le corps de l'erreur Vonage explique la cause (identifiants, numéro non autorisé dans le sandbox…)
+        logger.error("Vonage send error %s: %s", response.status_code, response.text[:300])
+    response.raise_for_status()
+
+
+async def download_media(media_url: str) -> Tuple[bytes, str]:
+    """Download an inbound media file from the URL given in the Vonage webhook.
+
+    Vonage garde le média 48 h derrière une URL unique ; elle se lit sans identifiants tant que
+    « Enhanced Inbound Media Security » n'est pas activé sur l'application Vonage.
 
     Args:
-        media_id: The WhatsApp media ID received in the webhook.
+        media_url: The `image.url` received in the webhook.
 
     Returns:
         tuple[bytes, str]: Tuple containing binary content and mime type (e.g. image/jpeg).
 
     Raises:
-        httpx.HTTPError: If either request fails.
+        httpx.HTTPError: If the download fails.
     """
-    settings = get_settings()
-    headers = {
-        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
-    }
+    if urlparse(media_url).scheme != "https":
+        raise ValueError("Media URL must use https")
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0)) as client:
-        # Étape 1 : Obtenir l'URL de téléchargement
-        meta_url = f"{settings.graph_api_url}/{media_id}"
-        meta_resp = await client.get(meta_url, headers=headers)
-        meta_resp.raise_for_status()
-        media_info = meta_resp.json()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0, connect=10.0), follow_redirects=True) as client:
+        response = await client.get(media_url)
+        if response.status_code in (401, 403):
+            logger.error("Media download refused (%s): is Enhanced Inbound Media Security enabled?",
+                         response.status_code)
+        response.raise_for_status()
+        content = response.content
+        mime_type = response.headers.get("content-type", "image/jpeg").split(";")[0].strip()
 
-        download_url = media_info.get("url")
-        mime_type = media_info.get("mime_type", "image/jpeg")
-
-        if not download_url:
-            raise ValueError(f"No download URL found for media ID {media_id}")
-
-        # Étape 2 : Télécharger les données binaires du média
-        media_resp = await client.get(download_url, headers=headers)
-        media_resp.raise_for_status()
-        content = media_resp.content
-
-        logger.info(
-            "Media downloaded successfully: media_id=%s, size_bytes=%d, mime_type=%s",
-            media_id,
-            len(content),
-            mime_type,
-        )
-        return content, mime_type
+    logger.info("Media downloaded successfully: size_bytes=%d, mime_type=%s", len(content), mime_type)
+    return content, mime_type
 
 
 def split_message(body: str, limit: int = MAX_TEXT_LENGTH) -> list[str]:
@@ -75,7 +80,7 @@ def split_message(body: str, limit: int = MAX_TEXT_LENGTH) -> list[str]:
 
 
 async def send_text(to: str, body: str) -> None:
-    """Send a plain text message to a WhatsApp user via Meta Cloud API.
+    """Send a plain text message to a WhatsApp user via the Vonage Messages API.
 
     Messages longer than 4096 characters are sent in several parts.
 
@@ -84,93 +89,65 @@ async def send_text(to: str, body: str) -> None:
         body: Text content of the message.
 
     Raises:
-        httpx.HTTPError: If Meta API returns an error.
+        httpx.HTTPError: If Vonage returns an error.
     """
-    settings = get_settings()
-    url = f"{settings.graph_api_url}/{settings.PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-
-    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+    async with httpx.AsyncClient(auth=_auth(), timeout=httpx.Timeout(15.0, connect=5.0)) as client:
         for chunk in split_message(body):
-            payload = {
-                "messaging_product": "whatsapp",
-                "to": to,
-                "type": "text",
-                "text": {"body": chunk},
-            }
-            response = await client.post(url, headers=headers, json=payload)
-            if response.is_error:
-                # Le corps de l'erreur Meta explique la cause (token expiré, numéro non autorisé…)
-                logger.error("Meta send error %s: %s", response.status_code, response.text[:300])
-            response.raise_for_status()
+            await _post(client, _message(to, message_type="text", text=chunk))
     logger.info("Message sent successfully to %s", mask_phone(to))
 
 
 async def send_buttons(to: str, body: str, buttons: list[tuple[str, str]]) -> None:
     """Send a message with up to 3 reply buttons.
 
-    Le clic revient dans le webhook comme un message `interactive` portant l'id du bouton.
+    Le clic revient dans le webhook comme un message `reply` portant l'id du bouton.
+    Si Vonage refuse le message interactif, le même texte part sans boutons : les mots
+    (« terminé », « annuler »…) marchent aussi.
 
     Args:
         to: Destination WhatsApp phone number.
         body: Message text (1024 characters max).
         buttons: (id, title) pairs; title is 20 characters max.
     """
-    settings = get_settings()
-    url = f"{settings.graph_api_url}/{settings.PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": to,
-        "type": "interactive",
-        "interactive": {
-            "type": "button",
-            "body": {"text": body[:1024]},
-            "action": {
-                "buttons": [
-                    {"type": "reply", "reply": {"id": bid, "title": title[:20]}}
-                    for bid, title in buttons[:3]
-                ]
-            },
+    interactive = {
+        "type": "button",
+        "body": {"text": body[:1024]},
+        "action": {
+            "buttons": [
+                {"type": "reply", "reply": {"id": bid, "title": title[:20]}}
+                for bid, title in buttons[:3]
+            ]
         },
     }
+    payload = _message(to, message_type="custom", custom={"type": "interactive", "interactive": interactive})
 
-    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
-        response = await client.post(url, headers=headers, json=payload)
-        if response.is_error:
-            logger.error("Meta send error %s: %s", response.status_code, response.text[:300])
-        response.raise_for_status()
+    try:
+        async with httpx.AsyncClient(auth=_auth(), timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+            await _post(client, payload)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            raise
+        # « ✅ Terminé » → « Terminé » : le mot que la conversation reconnaît
+        words = " ou ".join("*" + re.sub(r"^\W+", "", title) + "*" for _, title in buttons[:3])
+        await send_text(to, f"{body}\n\n👉 Répondez {words}.")
+        return
     logger.info("Buttons sent successfully to %s", mask_phone(to))
 
 
-async def mark_as_read(message_id: str) -> None:
-    """Mark an incoming WhatsApp message as read.
+async def mark_as_read(message_uuid: str) -> None:
+    """Mark an incoming WhatsApp message as read (not available in the Vonage sandbox).
 
     Args:
-        message_id: The ID of the message to mark as read.
+        message_uuid: The `message_uuid` of the inbound message.
     """
     settings = get_settings()
-    url = f"{settings.graph_api_url}/{settings.PHONE_NUMBER_ID}/messages"
-    headers = {
-        "Authorization": f"Bearer {settings.WHATSAPP_TOKEN}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "messaging_product": "whatsapp",
-        "status": "read",
-        "message_id": message_id,
-    }
+    if settings.VONAGE_SANDBOX:
+        return
 
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-            response = await client.post(url, headers=headers, json=payload)
+        async with httpx.AsyncClient(auth=_auth(), timeout=httpx.Timeout(5.0)) as client:
+            response = await client.patch(f"{settings.messages_url}/{message_uuid}", json={"status": "read"})
             response.raise_for_status()
-            logger.debug("Message %s marked as read", message_id)
+            logger.debug("Message %s marked as read", message_uuid)
     except Exception as exc:
-        logger.warning("Failed to mark message %s as read: %s", message_id, exc)
+        logger.warning("Failed to mark message %s as read: %s", message_uuid, exc)

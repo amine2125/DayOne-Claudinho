@@ -1,4 +1,14 @@
-import { ArrowLeftIcon, CircleCheckIcon, FileJsonIcon, ImageIcon, LoaderIcon, MessageCircleIcon, SquareIcon, TriangleAlertIcon } from 'lucide-react'
+import {
+  ArrowLeftIcon,
+  CircleCheckIcon,
+  FileJsonIcon,
+  ImageIcon,
+  LoaderIcon,
+  MessageCircleIcon,
+  ScanSearchIcon,
+  SquareIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { STATUSES_TO_REVIEW } from '@/contract/enums'
@@ -53,6 +63,7 @@ export function PageScreen() {
   if (!record) return <p className="p-8 text-muted-foreground">{t('patient.notFound')}</p>
 
   const open = fields.filter((f) => STATUSES_TO_REVIEW.includes(f.status))
+  const alerted = fields.filter((f) => f.alerts?.length).length
   const counts = {
     read: fields.filter((f) => f.status === 'KNOWN').length,
     blank: fields.filter((f) => f.status === 'NOT_PROVIDED' || f.status === 'NOT_APPLICABLE').length,
@@ -132,6 +143,11 @@ export function PageScreen() {
                   {open.length > 0 && (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-review-soft px-3 py-1.5 font-semibold text-review">
                       <TriangleAlertIcon className="size-4" /> {t('review.summary.toCheck', { n: open.length })}
+                    </span>
+                  )}
+                  {alerted > 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-review-soft px-3 py-1.5 font-semibold text-review">
+                      <ScanSearchIcon className="size-4" /> {t('review.summary.alerts', { n: alerted })}
                     </span>
                   )}
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-blank-soft px-3 py-1.5 text-blank">

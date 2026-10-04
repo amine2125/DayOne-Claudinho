@@ -32,3 +32,7 @@ web/dist/
 *.db
 offline_captures/
 captures/
+
+# Base de démonstration (scripts/seed_demo.py)
+.demo_key
+demo_captures/

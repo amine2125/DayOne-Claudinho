@@ -21,7 +21,7 @@ from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Respons
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from api import store
+from api import aggregates, store
 from dayone import ocr, vlm
 from dayone.extract import THRESHOLD, NotAFormError
 from dayone.schema import REFERENCE_PAGE_TYPES, STATUSES
@@ -31,6 +31,8 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    # Dossiers en vérification lus avant les contrôles de cohérence : on les contrôle.
+    store.recheck_open_records()
     # Photos reçues mais pas encore lues (serveur arrêté entre-temps) : on les lit au démarrage.
     pending = store.pending_records()
     if pending:
@@ -108,6 +110,12 @@ def extract(
 def snapshot() -> dict:
     """Patientes, visites et dossiers, au format du contrat du tableau de bord."""
     return store.snapshot(lambda page_id: f"/api/pages/{page_id}/image")
+
+
+@app.get("/api/aggregates")
+def aggregates_view(source: Literal["registry", "synthetic"] = "registry") -> dict:
+    """Agrégats anonymes (comptes et distributions, petits effectifs masqués). Aucun dossier individuel."""
+    return aggregates.build(source)
 
 
 @app.get("/api/pages/{page_id}/image")

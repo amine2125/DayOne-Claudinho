@@ -43,6 +43,21 @@ WhatsApp (sage-femme) ──▶ whatsapp-bot/ ──▶ api/ ──▶ dayone.ex
 
 Tests : `.venv/bin/python -m pytest -q` (lecture et API), `cd whatsapp-bot && python -m pytest -q` (agent WhatsApp), `cd web && npm run build` (tableau de bord).
 
+## Suivi d'une visite à l'autre (courbes, cohérence, rendez-vous, agrégats)
+
+Le registre est longitudinal : la page « Grossesse actuelle » porte jusqu'à 9 visites (poids, TA, HU, BCF, examens). DayOne s'en sert à trois choses, **sans aucune logique clinique** (hors périmètre du défi : ni seuil, ni risque, ni triage).
+
+| Brique | Où | Ce qu'elle fait |
+|---|---|---|
+| Tableau des visites lu colonne par colonne | `dayone/extract.py`, `dayone/imaging.py` | Les bandeaux sombres (« EXAMEN CLINIQUE ») coupaient les traits verticaux : le tableau était rejeté, toutes les valeurs sortaient « non rattachées », sans visite (BCF dans le désordre). Les morceaux de traits alignés sont recollés ; l'en-tête sur deux rangées donne « 2ème trimestre - Visite 2 » ; chaque cellule garde sa **colonne** (une visite). Poids de la mère en kg (« 58.8 » → 58 800 g, et non 59 g). « \|51/97 » (1 au stylo fin) → 151/97 si c'est la seule lecture possible. Pages de référence 2, 4, 26 : sortie identique à avant. |
+| Mesures suivies | `dayone/suivi.py` | Champs → visites (date, SA, rendez-vous écrit) et valeurs (poids, TA, HU, BCF, T°, pouls, Hb, tests). Reconnaît aussi les pages post-partum (mère / nouveau-né). Une valeur sans colonne sûre n'est jamais placée. |
+| Contrôles de cohérence de la **lecture** | `dayone/coherence.py` | Une valeur qui contredit le reste du registre est probablement mal lue : rendez-vous avant la visite (« 29/1/2025 » pour 29/11), dates qui reculent, SA qui ne colle pas avec la DDR, chiffre isolé loin des deux visites voisines (6 lu 8), DPA ≠ DDR + 280 j, parité > gestité, voie basse et césarienne cochées ensemble, valeur physiquement impossible (BCF 52, HU 127). Le champ lu par l'IA passe « à vérifier » avec l'explication ; l'agent WhatsApp la donne (« ↳ Rendez-vous 29/01/2025 : avant la visite du 01/11/2025 : à vérifier sur le papier »). Une correction relance les contrôles ; un champ confirmé par la sage-femme n'est plus jamais signalé. |
+| Onglet « Évolution » | `web/src/components/PatientTrends.tsx` | Courbes poids / TA / HU / BCF selon la SA, poids du nouveau-né (naissance → J7 → J42), tableau des visites, examens notés. Chaque point ouvre la page du registre ; un point « à vérifier » est creux. Aucune zone de norme dessinée. |
+| Onglet « Rendez-vous » et écran « Aujourd'hui » | `web/src/services/trends.ts`, `followup.ts` | Le rendez-vous **écrit** sur le registre passe avant la règle des 28 jours ; liste des rendez-vous donnés et du retard au retour (des dates, rien d'autre). |
+| Agrégats anonymes (bonus du défi) | `api/aggregates.py`, `GET /api/aggregates?source=registry\|synthetic` | TA, T°, Hb, VIH / syphilis / hépatite, suivi prénatal, accouchements, complétude. Calculés sur le serveur (le navigateur ne reçoit que des comptes), valeurs sûres ou vérifiées seulement, **toute case de moins de 5 femmes masquée**. Source « synthetic » : le CSV fourni (200 femmes). |
+
+Base de démonstration (vraies pages dev lues par le pipeline, vérifiées, rattachées ; un dossier avec une incohérence reste « à vérifier ») : `.venv/bin/python -m scripts.seed_demo --patients 1 2 3 --cache outputs/demo_cache`, puis `DAYONE_DB=demo.db DAYONE_CAPTURES=demo_captures DAYONE_KEY_FILE=.demo_key .venv/bin/uvicorn api.main:app --port 8000`. La base de travail `dayone.db` n'est pas touchée.
+
 ## Comment une fiche est lue (OCR d'abord)
 
 | Étape | Outil | Rôle |

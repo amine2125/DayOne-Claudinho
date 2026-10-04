@@ -235,24 +235,33 @@ def label_checkboxes(boxes, lines: list[dict], text_height: float,
     return [(b, renamed.get(b, lab)) for b, lab in labeled]
 
 
-def _line_positions(mask: np.ndarray, axis: int, min_frac: float) -> list[int]:
+def _line_positions(mask: np.ndarray, axis: int, min_frac: float, joined: bool = False) -> list[int]:
     """Positions des traits d'un masque (horizontaux : axis=0 -> y ; verticaux : axis=1 -> x).
-    Chaque trait est une composante assez longue ; sa position est sa moyenne (robuste à une légère pente)."""
+    Chaque trait est une composante assez longue ; sa position est sa moyenne (robuste à une légère pente).
+    `joined` : un trait coupé en morceaux alignés (bandeau sombre qui traverse le tableau) compte pour la
+    somme de ses morceaux."""
     n, lab, stats, cent = cv2.connectedComponentsWithStats(mask)
     length = stats[:, cv2.CC_STAT_WIDTH] if axis == 0 else stats[:, cv2.CC_STAT_HEIGHT]
     full = mask.shape[1] if axis == 0 else mask.shape[0]
-    pos = sorted(int(cent[i, 1] if axis == 0 else cent[i, 0]) for i in range(1, n) if length[i] >= min_frac * full)
-    merged = []
-    for p in pos:
-        if merged and p - merged[-1] <= 8:
-            merged[-1] = (merged[-1] + p) // 2
+    pieces = sorted((int(cent[i, 1] if axis == 0 else cent[i, 0]), int(length[i])) for i in range(1, n))
+    if not joined:
+        pieces = [(p, n_px) for p, n_px in pieces if n_px >= min_frac * full]
+    groups: list[list[tuple[int, int]]] = []
+    for p, n_px in pieces:
+        if groups and p - groups[-1][-1][0] <= 8:
+            groups[-1].append((p, n_px))
         else:
-            merged.append(p)
-    return merged
+            groups.append([(p, n_px)])
+    return [round(sum(p * n_px for p, n_px in g) / sum(n_px for _, n_px in g))
+            for g in groups if sum(n_px for _, n_px in g) >= min_frac * full]
 
 
 def table_grid(img: np.ndarray, region) -> tuple[list[int], list[int]]:
-    """Traits d'un tableau : (positions y des lignes, positions x des colonnes), en coordonnées de la page."""
+    """Traits d'un tableau : (positions y des lignes, positions x des colonnes), en coordonnées de la page.
+
+    Un tableau coupé par des bandeaux sombres (« EXAMEN CLINIQUE » sur toute la largeur) n'a que des morceaux
+    de traits verticaux : s'il manque des colonnes, on recolle les morceaux alignés.
+    """
     x, y, w, h = region
     m = printed_mask(img[y:y + h, x:x + w]) * 255
     horiz = cv2.morphologyEx(m, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (max(20, w // 8), 1)))
@@ -260,7 +269,22 @@ def table_grid(img: np.ndarray, region) -> tuple[list[int], list[int]]:
     vert = cv2.morphologyEx(vert, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(15, h // 8))))
     ys = [y + p for p in _line_positions(horiz, 0, 0.5)]
     xs = [x + p for p in _line_positions(vert, 1, 0.4)]
+    if len(xs) < 3:
+        xs = [x + p for p in _line_positions(vert, 1, 0.4, joined=True)]
     return ys, xs
+
+
+def vertical_rules(img: np.ndarray, y0: int, y1: int, xs: list[int]) -> list[bool]:
+    """Pour chaque x, y a-t-il un trait vertical entre y0 et y1 ? (cellule fusionnée = pas de trait)."""
+    band = printed_mask(img[y0:y1]) if y1 > y0 else None
+    out = []
+    for x in xs:
+        if band is None:
+            out.append(False)
+            continue
+        cols = band[:, max(0, x - 3):x + 4]
+        out.append(bool(cols.size) and float(cols.max(axis=1).mean()) >= 0.6)
+    return out
 
 
 def ink_pixels(img: np.ndarray, box, blue_only: bool = False, bm: np.ndarray | None = None) -> int:

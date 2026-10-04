@@ -4,15 +4,22 @@ from functools import lru_cache
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+SANDBOX_MESSAGES_URL = "https://messages-sandbox.nexmo.com/v1/messages"
+
 
 class Settings(BaseSettings):
-    # Meta WhatsApp Cloud API credentials
-    WHATSAPP_TOKEN: str = ""
-    PHONE_NUMBER_ID: str = ""
-    APP_SECRET: str = ""
-    # Pas de valeur par défaut : un jeton devinable permettrait à n'importe qui d'abonner le webhook
-    VERIFY_TOKEN: str = ""
-    GRAPH_API_VERSION: str = "v21.0"
+    # Vonage Messages API (canal WhatsApp)
+    VONAGE_API_KEY: str = ""
+    VONAGE_API_SECRET: str = ""
+    # Secret de signature du compte : vérifie le JWT des webhooks. Sans lui, tout est refusé
+    VONAGE_SIGNATURE_SECRET: str = ""
+    # Numéro WhatsApp Business (ou celui du sandbox), format international sans « + »
+    VONAGE_WHATSAPP_NUMBER: str = ""
+    VONAGE_SANDBOX: bool = False
+    VONAGE_API_HOST: str = "https://api.nexmo.com"
+
+    # Clé du HMAC qui identifie la sage-femme sans son numéro : la changer change ses identifiants
+    MIDWIFE_ID_SECRET: str = ""
 
     # API DayOne (api/main.py) : lecture, base des dossiers, tableau de bord
     DAYONE_API_URL: str = "http://localhost:8000"
@@ -35,9 +42,11 @@ class Settings(BaseSettings):
     )
 
     @property
-    def graph_api_url(self) -> str:
-        """Returns base Meta Graph API URL."""
-        return f"https://graph.facebook.com/{self.GRAPH_API_VERSION}"
+    def messages_url(self) -> str:
+        """Returns the Vonage Messages API endpoint (sandbox or production)."""
+        if self.VONAGE_SANDBOX:
+            return SANDBOX_MESSAGES_URL
+        return f"{self.VONAGE_API_HOST.rstrip('/')}/v1/messages"
 
 
 @lru_cache

@@ -88,8 +88,10 @@ def restore_missing_letters(text: str) -> str | None:
     return None if out == t else out
 
 
-def parse(kind: str, text: str):
-    """Texte lu -> (valeur typée, format_ok). Ne devine jamais : format_ok=False si ça ne colle pas."""
+def parse(kind: str, text: str, label: str = ""):
+    """Texte lu -> (valeur typée, format_ok). Ne devine jamais : format_ok=False si ça ne colle pas.
+
+    `label` sert seulement à l'unité imprimée dans l'étiquette (« Poids (kg) » : « 58.8 » est en kg)."""
     text = (text or "").strip()
     if not text:
         return None, False
@@ -111,8 +113,12 @@ def parse(kind: str, text: str):
         if n is None:
             return None, False
         t = fold(text)
-        grams = n * 1000 if ("kg" in t or n < 10) else n
-        return int(round(grams)), 300 <= grams <= 7000
+        kg_label = "kg" in fold(label).split()
+        in_kg = "kg" in t or n < 10 or (kg_label and not re.search(r"\d\s*g\b", t))
+        grams = n * 1000 if in_kg else n
+        # Poids de la mère (« Poids (kg) », « 66 kg ») ou poids d'un nouveau-né : chacun sa plage de format.
+        adult = kg_label or ("kg" in t and n >= 25)
+        return int(round(grams)), (25_000 <= grams <= 250_000) if adult else (300 <= grams <= 7000)
     if kind == "length":
         n = _number(text)
         return (n if n is None or n != int(n) else int(n)), n is not None and 10 <= n <= 70
@@ -165,8 +171,8 @@ def comparable(kind: str, value) -> str:
 
 # Type d'un champ deviné d'après son étiquette (fiche inconnue). Premier motif trouvé = type retenu.
 KIND_RULES = [   # français, anglais, arabe
-    ("date", r"\bdate\b|\ble\b|\bddr\b|\bne[e]? le\b|\bon\b|تاريخ"),
-    ("weeks", r"\bsa\b|age gestationnel|terme|gestational age|\bweeks\b|اسبوع|الاسابيع"),
+    ("date", r"\bdate\b|\ble\b|\bddr\b|\bne[e]? le\b|\bon\b|rendez vous|\brdv\b|تاريخ"),
+    ("weeks", r"\bsa\b|age gestationnel|age probable|terme|gestational age|\bweeks\b|اسبوع|الاسابيع"),
     ("weight", r"\bpoids\b|\bweight\b|وزن|الوزن"),
     ("length", r"perimetre|taille|\bhu\b|hauteur uterine|circumference|height|length|محيط|طول"),
     ("sex", r"\bsexe\b|\bsex\b|gender|الجنس"),

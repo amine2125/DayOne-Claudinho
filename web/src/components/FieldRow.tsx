@@ -1,7 +1,9 @@
 import type { PageType } from '@/contract/enums'
 import { fieldDef } from '@/contract/registry'
 import type { Field } from '@/contract/types'
+import { ScanSearchIcon } from 'lucide-react'
 import { formatValue, useT } from '@/i18n'
+import { alertText } from '@/i18n/alerts'
 import { cn } from '@/lib/utils'
 import { ConfidenceMeter, OriginTag, StatusBadge } from './status'
 
@@ -25,6 +27,12 @@ export function FieldRow({ field, pageType, focused, onFocus }: { field: Field; 
           {field.readValue && ` · ${t('review.readAs', { v: field.readValue })}`}
         </span>
       )}
+      {field.alerts?.map((a) => (
+        <span key={a.code} className="flex items-start gap-1.5 rounded-md bg-review-soft px-2 py-1 text-xs text-review">
+          <ScanSearchIcon className="mt-px size-3.5 shrink-0" aria-label={t('alert.check')} />
+          {alertText(t, a)}
+        </span>
+      ))}
       {field.value !== null && (
         <div className="flex items-center gap-3">
           <OriginTag origin={field.origin} />

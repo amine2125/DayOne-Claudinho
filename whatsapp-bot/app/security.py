@@ -1,10 +1,16 @@
-"""Security and webhook signature verification."""
+"""Security: Vonage webhook signature verification, log-safe phone numbers."""
 
+import base64
 import hashlib
 import hmac
+import json
 import logging
+import time
 
 logger = logging.getLogger(__name__)
+
+# Au-delà, un webhook rejoué échapperait au dédoublonnage (1 h) : on le refuse
+MAX_TOKEN_AGE_SECONDS = 3600
 
 
 def mask_phone(phone: str | None) -> str:
@@ -17,40 +23,76 @@ def mask_phone(phone: str | None) -> str:
     return f"***{phone[-4:]}"
 
 
-def verify_signature(payload: bytes, signature_header: str | None, app_secret: str) -> bool:
-    """Verify Meta's X-Hub-Signature-256 header against the raw request body.
+def _b64url_decode(part: str) -> bytes:
+    return base64.urlsafe_b64decode(part + "=" * (-len(part) % 4))
+
+
+def _payload_hash_matches(payload: bytes, payload_hash: object) -> bool:
+    """Le claim `payload_hash` est le SHA-256 du corps envoyé par Vonage."""
+    if not isinstance(payload_hash, str):
+        return False
+    bodies = [payload]
+    try:
+        # Vonage hache le JSON compact : le corps re-sérialisé couvre un éventuel écart d'espaces
+        bodies.append(json.dumps(json.loads(payload), separators=(",", ":"), ensure_ascii=False).encode("utf-8"))
+    except ValueError:
+        pass
+    expected = payload_hash.lower()
+    return any(hmac.compare_digest(hashlib.sha256(body).hexdigest(), expected) for body in bodies)
+
+
+def verify_signature(payload: bytes, authorization: str | None, signature_secret: str) -> bool:
+    """Verify the JWT that Vonage puts in the Authorization header of every Messages API webhook.
+
+    Le JWT est signé en HMAC-SHA256 avec le secret de signature du compte (Dashboard → Settings) ;
+    son claim `payload_hash` lie la signature au corps de la requête.
 
     Args:
         payload: The raw request body in bytes.
-        signature_header: The X-Hub-Signature-256 header (format: 'sha256=<hash>').
-        app_secret: The Meta App Secret configured in developers.facebook.com.
+        authorization: The Authorization header (format: 'Bearer <jwt>').
+        signature_secret: The Vonage signature secret.
 
     Returns:
         True if valid, False otherwise.
     """
-    if not app_secret:
-        # Refuser plutôt que laisser passer : sans secret, n'importe qui pourrait simuler Meta
-        logger.error("APP_SECRET is not configured. Rejecting webhook.")
+    if not signature_secret:
+        # Refuser plutôt que laisser passer : sans secret, n'importe qui pourrait simuler Vonage
+        logger.error("VONAGE_SIGNATURE_SECRET is not configured. Rejecting webhook.")
         return False
 
-    if not signature_header:
-        logger.warning("Missing X-Hub-Signature-256 header in request.")
+    scheme, _, token = (authorization or "").partition(" ")
+    if scheme.lower() != "bearer" or not token.strip():
+        logger.warning("Missing or malformed Authorization header in webhook (expected 'Bearer <jwt>').")
         return False
 
-    prefix = "sha256="
-    if not signature_header.startswith(prefix):
-        logger.warning("Invalid X-Hub-Signature-256 header format. Expected 'sha256=...'.")
+    try:
+        header_b64, claims_b64, signature_b64 = token.strip().split(".")
+        header = json.loads(_b64url_decode(header_b64))
+        claims = json.loads(_b64url_decode(claims_b64))
+        signature = _b64url_decode(signature_b64)
+    except ValueError:
+        logger.warning("Invalid webhook JWT format.")
+        return False
+    if not isinstance(header, dict) or not isinstance(claims, dict) or header.get("alg") != "HS256":
+        logger.warning("Unexpected webhook JWT header or claims (HS256 expected).")
         return False
 
-    received_sig = signature_header[len(prefix):]
     expected_sig = hmac.new(
-        key=app_secret.encode("utf-8"),
-        msg=payload,
-        digestmod=hashlib.sha256
-    ).hexdigest()
+        key=signature_secret.encode("utf-8"),
+        msg=f"{header_b64}.{claims_b64}".encode("ascii"),
+        digestmod=hashlib.sha256,
+    ).digest()
+    if not hmac.compare_digest(expected_sig, signature):
+        logger.warning("Invalid signature: webhook JWT not signed with VONAGE_SIGNATURE_SECRET.")
+        return False
 
-    is_valid = hmac.compare_digest(expected_sig, received_sig)
-    if not is_valid:
-        logger.warning("Invalid signature: payload does not match X-Hub-Signature-256.")
+    issued_at = claims.get("iat")
+    if not isinstance(issued_at, (int, float)) or abs(time.time() - issued_at) > MAX_TOKEN_AGE_SECONDS:
+        logger.warning("Webhook JWT is too old or has no 'iat' claim.")
+        return False
 
-    return is_valid
+    if not _payload_hash_matches(payload, claims.get("payload_hash")):
+        logger.warning("Invalid signature: payload does not match the JWT payload_hash.")
+        return False
+
+    return True

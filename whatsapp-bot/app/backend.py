@@ -25,8 +25,8 @@ class ApiError(Exception):
 
 
 def midwife_id(phone: str) -> str:
-    """Identifiant stable de la sage-femme, sans son numéro (HMAC avec APP_SECRET : non réversible)."""
-    key = (get_settings().APP_SECRET or "dayone").encode()
+    """Identifiant stable de la sage-femme, sans son numéro (HMAC avec MIDWIFE_ID_SECRET : non réversible)."""
+    key = (get_settings().MIDWIFE_ID_SECRET or "dayone").encode()
     return "wa-" + hmac.new(key, phone.encode(), hashlib.sha256).hexdigest()[:10]
 
 
