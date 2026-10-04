@@ -6,7 +6,7 @@ en arrière-plan pendant que la sage-femme photographie la page suivante.
     IDLE ──photo──▶ COLLECTING (dossier créé, photos suivantes ajoutées) ──« Terminé »──▶ fin de la lecture
          ──▶ ASK_CODE (code lu sur la page proposé) ──code──▶ REVIEW (page i/n)
       1 Confirmer ── page suivante, ou fin ──▶ validation (résultat final stocké) ──▶ LINK (patiente)
-                                           ──▶ récapitulatif tiré du résultat final
+                                           ──▶ récapitulatif tiré du résultat final + fiche PDF (document à télécharger)
                  └─ s'il reste des doutes : CONFIRM_UNCERTAIN (1 confirmer tels quels / 2 corriger)
       2 Corriger  ──▶ CHOOSE_FIELD ──numéro──▶ EDIT_VALUE ──valeur──▶ REVIEW
       3 Voir      ──▶ liste des valeurs ──▶ REVIEW
@@ -32,7 +32,7 @@ from app import backend, render
 from app.backend import ApiError
 from app.config import get_settings
 from app.security import mask_phone
-from app.whatsapp import download_media, send_buttons, send_list, send_text
+from app.whatsapp import download_media, send_buttons, send_document, send_list, send_text
 
 logger = logging.getLogger(__name__)
 
@@ -455,7 +455,18 @@ async def _on_link_choice(phone: str, session: Session, text: str) -> None:
         body += "\n👤 Patiente à confirmer plus tard sur le tableau de bord."
     logger.info("Record %s validated by %s", record_id, mask_phone(phone))
     await send_text(to=phone, body=body)
+    await _send_pdf(phone, record_id)
     reset_session(phone)
+
+
+async def _send_pdf(phone: str, record_id: str) -> None:
+    """La fiche du dossier en PDF (mise en page propre, à ouvrir et télécharger)."""
+    try:
+        data, filename = await backend.get_pdf(record_id)
+        await send_document(phone, data, filename, caption="📄 Fiche du dossier (PDF) : appuyez pour l'ouvrir ou la télécharger.")
+    except Exception as exc:   # Meta ou l'API indisponible : le dossier est déjà enregistré, on prévient seulement
+        logger.error("PDF not sent for %s: %s", record_id, exc)
+        await send_text(to=phone, body="⚠️ La fiche PDF n'a pas pu être envoyée. Elle reste disponible sur le tableau de bord.")
 
 
 # --- Correction d'un champ ---

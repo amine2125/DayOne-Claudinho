@@ -132,3 +132,15 @@ def test_tableau_de_bord_local_sans_cle(monkeypatch):
 def test_sans_cle_configuree_rien_ne_change(monkeypatch):
     monkeypatch.setattr(server, "API_KEY", "")
     assert client.get("/api/snapshot").status_code == 200
+
+
+def test_pdf_seulement_apres_validation():
+    assert client.get("/api/records/inconnu/pdf").status_code == 404
+
+
+def test_tableau_de_bord_local_lit_json_et_pdf_sans_cle(monkeypatch):
+    monkeypatch.setattr(server, "API_KEY", "secret-de-test")
+    local = TestClient(server.app, client=("127.0.0.1", 50000))
+    assert local.get("/api/records/inconnu/pdf").status_code == 404        # pas 401 : lecture locale permise
+    assert local.get("/api/records/inconnu/final").status_code == 404
+    assert client.get("/api/records/inconnu/pdf").status_code == 401       # de l'extérieur : clé exigée

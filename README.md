@@ -14,6 +14,8 @@ Hackathon CodeML 2026, défi 17. Tout tourne en local. **Aucun gabarit** : le lo
 | Agent WhatsApp | http://127.0.0.1:8001 | `whatsapp-bot/.env` existe (puis tunnel : voir `whatsapp-bot/README.md`) |
 | Banc de test (import d'une photo) | http://localhost:8501 | toujours |
 
+**Fiche PDF** : à la fin de la conversation WhatsApp, le bot envoie la fiche du dossier en PDF (mise en page propre, tableaux du registre en vrais tableaux, français/arabe/anglais). Elle est aussi sur le tableau de bord (bouton « Fiche PDF » d'un dossier validé, sage-femme et superviseur) et à `GET /api/records/{id}/pdf`. Fabriquée à la demande depuis le résultat final chiffré : aucun PDF n'est stocké sur disque.
+
 L'API exige une clé (`.api_key`, créée au premier lancement, jamais commitée) : l'agent WhatsApp la reçoit automatiquement. Seules la lecture du tableau de bord depuis cette machine et `/health` s'en passent.
 
 - Au premier lancement, les modèles se téléchargent une seule fois : Ollama (~3,3 Go) et PaddleOCR français/anglais/arabe (~20 Mo). Ensuite, tout marche hors ligne.
