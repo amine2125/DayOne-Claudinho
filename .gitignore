@@ -18,3 +18,7 @@ __pycache__/
 
 # Logs & temp
 *.log
+
+# Web UI
+web/node_modules/
+web/dist/
