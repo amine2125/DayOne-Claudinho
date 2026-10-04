@@ -3,10 +3,10 @@ import { STATUSES_TO_REVIEW } from '@/contract/enums'
 import { WAITING_FOR_NETWORK } from '@/contract/lifecycle'
 import type { Field, Page, Patient, RegistryRecord } from '@/contract/types'
 import type { AppState, DayOneApi } from './api'
-import { mockApi } from './mockApi'
+import { localApi } from './localApi'
 
 /** Swap for an HTTP implementation of DayOneApi when the backend is ready. */
-export const api: DayOneApi = mockApi
+export const api: DayOneApi = localApi
 
 export function useAppState<T>(select: (s: AppState) => T): T {
   return useSyncExternalStore(api.subscribe, () => select(api.getState()))

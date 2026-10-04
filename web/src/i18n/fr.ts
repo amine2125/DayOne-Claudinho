@@ -194,7 +194,7 @@ export const fr = {
   'patients.title': 'Patientes',
   'patients.subtitle': 'Uniquement des codes : aucun nom, téléphone ni adresse n’est enregistré.',
   'patients.search': 'Chercher un code',
-  'patients.empty': 'Aucune patiente.',
+  'patients.empty': 'Aucune patiente pour l’instant.',
 
   // patient profile
   'patient.label': 'Patiente',
@@ -236,6 +236,8 @@ export const fr = {
   'fact.nn_sexe': 'Nouveau-né',
 
   'today.subtitle': 'qui voir en premier',
+  'today.empty.title': 'Aucune patiente pour l’instant',
+  'today.empty.hint': 'Les dossiers apparaîtront ici automatiquement dès que les sages-femmes enverront les photos du registre sur WhatsApp.',
   'today.priority': 'Par ordre de priorité',
   'today.priorityHint': 'Selon le calendrier du carnet. Cliquez pour ouvrir le dossier.',
   'today.photoWaiting': '{n} photo(s) reçue(s) pour ce code, pas encore traitée(s)',
@@ -302,8 +304,8 @@ export const fr = {
   'settings.privacy.2': 'Une patiente = un code écrit sur le registre + un identifiant interne aléatoire.',
   'settings.privacy.3': 'Sur la photo, les zones personnelles sont toujours masquées.',
   'settings.privacy.4': 'La lecture IA tourne en local, sans service externe.',
-  'settings.reset': 'Remettre la démo à zéro',
-  'settings.resetDone': 'Démo remise à zéro',
+  'settings.reset': 'Effacer les données de ce navigateur',
+  'settings.resetDone': 'Données effacées',
 
 
 } as const

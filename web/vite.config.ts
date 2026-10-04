@@ -10,7 +10,6 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       // Single source of truth: the registry templates used by the Python pipeline.
       '@schema': path.resolve(__dirname, '../schema'),
-      '@predictions': path.resolve(__dirname, '../outputs/predictions'),
     },
   },
   publicDir: path.resolve(__dirname, 'public'),

@@ -95,7 +95,7 @@ export function AppShell() {
           className={({ isActive }) => cn('m-3 flex items-center gap-3 rounded-xl p-3 hover:bg-sidebar-accent', isActive ? 'bg-sidebar-accent' : 'bg-sidebar-accent/60')}
         >
           <span className="flex-1">
-            <span className="font-code block text-sm font-bold">{midwifeId}</span>
+            <span className={cn('block text-sm', midwifeId ? 'font-code font-bold' : 'text-sidebar-foreground/70')}>{midwifeId || t('settings.midwifeId')}</span>
             <span className="block text-xs text-sidebar-foreground/60">{t(`settings.role.${role}`)}</span>
           </span>
           <SettingsIcon className="size-5 text-sidebar-foreground/70" aria-label={t('nav.settings')} />

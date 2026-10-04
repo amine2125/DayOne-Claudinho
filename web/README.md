@@ -2,7 +2,9 @@
 
 Tableau de bord de DayOne, **en lecture seule** : qui voir en premier, et le dossier de chaque patiente.
 La sage-femme envoie les photos, vérifie les cases douteuses et choisit la patiente **sur WhatsApp** ; cette interface ne modifie rien, elle montre ce qui se passe.
-Elle lit directement `../schema/*.json` (gabarits) et `../outputs/predictions/*.json` (sorties réelles du pipeline).
+Elle lit directement `../schema/*.json` (gabarits des pages du registre).
+
+**Elle démarre vide** : aucune donnée de démo. Les patientes et les dossiers viendront du backend, une fois l'agent WhatsApp branché.
 
 ```bash
 cd web
@@ -11,15 +13,11 @@ npm run dev        # http://localhost:5173
 npm run build      # build statique dans dist/
 ```
 
-Pour la démo, on coupe et rétablit le réseau avec la pastille **Hors ligne / En ligne** en haut de l'écran. L'état de la démo est gardé dans le navigateur. **Paramètres → Remettre la démo à zéro** repart de l'état initial.
+Seuls tes réglages (rôle, langue, identifiant sage-femme) sont gardés dans le navigateur.
 
-## Parcours de démo
+## Brancher le backend
 
-1. **Aujourd'hui** : les patientes sont classées par urgence du prochain rendez-vous (en retard, cette semaine, à recontacter, plus tard, suivi terminé). Les compteurs en haut servent aussi de filtres.
-2. Survoler « Prévue le … » pour voir d'où vient la date (ex. « 42 jours après l'accouchement »).
-3. Colonne **En cours** : les photos envoyées par WhatsApp qui ne sont pas encore dans un dossier (en attente du réseau, à vérifier, photo illisible).
-4. Cliquer **Hors ligne** pour rétablir la connexion : les photos en attente sont lues, puis passent à « À vérifier par la sage-femme sur WhatsApp ».
-5. Ouvrir une patiente : l'essentiel, le carnet de 8 pages, les visites. Chaque page s'ouvre en lecture seule, photo masquée à côté des champs.
+Les écrans ne lisent que l'interface `DayOneApi` ([src/services/api.ts](src/services/api.ts)). Aujourd'hui elle est servie par un store local vide ([src/services/localApi.ts](src/services/localApi.ts)). Pour afficher les vraies données, il suffit d'écrire une classe qui implémente `DayOneApi` en appelant le backend, et de la brancher dans [src/services/index.ts](src/services/index.ts).
 
 ## Calendrier de suivi
 
@@ -39,7 +37,7 @@ Pour la démo, on coupe et rétablit le réseau avec la pastille **Hors ligne / 
 | Dossier | Rôle |
 |---|---|
 | `src/contract/` | **Le contrat de données.** `followup.ts` (calendrier de suivi), `enums.ts` (6 statuts de champ, cycle de vie, rôles), `types.ts` (Field, Page, RegistryRecord, Visit, Patient), `lifecycle.ts` (transitions permises et les 5 étapes montrées à la sage-femme), `registry.ts` (sections et champs lus depuis `schema/*.json`) |
-| `src/services/` | `api.ts` est l'interface `DayOneApi` (le backend). `mockApi.ts` la simule dans le navigateur : file hors ligne, lecture IA, sync. `followup.ts` calcule le prochain rendez-vous. `linking.ts` propose les correspondances patiente (utilisé par le bot WhatsApp) |
+| `src/services/` | `api.ts` est l'interface `DayOneApi` (le backend). `localApi.ts` en est la version locale, vide, en attendant le backend. `followup.ts` calcule le prochain rendez-vous. `linking.ts` propose les correspondances patiente |
 | `src/components/` | Briques réutilisables : `StatusBadge`, `ConfidenceMeter`, `FieldRow`, `SectionCard`, `LifecycleStepper`, `PageImage` / `FieldCrop`, `VisitTimeline`, `ConnectivityToggle` / `ConnectivityBanner`, `PatientCode` |
 | `src/screens/` | Un fichier par écran : `HomeScreen` (Aujourd'hui), `PatientsScreen`, `PatientScreen`, `PageScreen` (un dossier, lecture seule), `DashboardScreen` (superviseur / épidémiologiste), `SettingsScreen` |
 | `src/i18n/` | Textes FR / EN (`fr.ts`, `en.ts`, mêmes clés vérifiées par TypeScript) et libellés EN des champs |
@@ -74,6 +72,5 @@ Un `Field` correspond exactement à ce qu'écrit `dayone/extract.py` (`value`, `
 
 ## Limites
 
-- Le service est fictif : la « lecture IA » renvoie les sorties réelles du pipeline (`outputs/predictions`) pour les pages d'exemple. Les pages post-partum n'ont pas de gabarit : elles sont gardées en image.
-- Dans le navigateur, l'état de la démo est stocké dans `localStorage`, **sans chiffrement**. Le chiffrement sur l'appareil relève de la couche hors ligne Python.
+- Pas encore de backend branché : l'interface est vide tant que l'agent WhatsApp n'envoie pas de dossiers.
 - Tableau de bord : les emplacements sont prêts, mais il n'y a encore ni graphique ni calcul.

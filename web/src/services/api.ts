@@ -1,7 +1,7 @@
 /**
- * The only door between screens and data. Today it is backed by an in-browser
- * mock (mockApi.ts); tomorrow an HTTP client implementing the same interface
- * talks to the Python backend. Screens never change.
+ * The only door between screens and data. Today it is backed by an empty local
+ * store (localApi.ts); once WhatsApp is connected, an HTTP client implementing
+ * the same interface talks to the Python backend. Screens never change.
  */
 import type { FieldStatus, Lang, LinkDecision, PageType, Role } from '@/contract/enums'
 import type { FieldValue, LinkCandidate, Patient, RegistryRecord, Visit } from '@/contract/types'
@@ -31,8 +31,6 @@ export interface NewPage {
   pageType: PageType
   imageUrl?: string
   imageSize: [number, number]
-  /** Demo only: which bundled sample the photo is, so the mock can return its prediction. */
-  sampleId?: string
 }
 
 export type LinkChoice = { decision: Extract<LinkDecision, 'EXISTING'>; patientId: string } | { decision: Exclude<LinkDecision, 'EXISTING'> }

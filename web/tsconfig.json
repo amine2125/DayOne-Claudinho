@@ -15,9 +15,6 @@
       ],
       "@schema/*": [
         "../schema/*"
-      ],
-      "@predictions/*": [
-        "../outputs/predictions/*"
       ]
     }
   }

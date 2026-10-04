@@ -7,6 +7,7 @@ import {
   CircleAlertIcon,
   CircleCheckBigIcon,
   ImageIcon,
+  MessageCircleIcon,
   PhoneCallIcon,
   SearchIcon,
   type LucideIcon,
@@ -186,6 +187,7 @@ function Activity({ records }: { records: RegistryRecord[] }) {
           </Link>
         ))}
       </section>
+      {recent.length > 0 && (
       <section className="flex flex-col gap-2 rounded-2xl border bg-card p-4">
         <h2 className="font-bold">{t('today.recentSynced')}</h2>
         {recent.map((r) => (
@@ -195,6 +197,7 @@ function Activity({ records }: { records: RegistryRecord[] }) {
           </Link>
         ))}
       </section>
+      )}
     </div>
   )
 }
@@ -261,11 +264,21 @@ export function HomeScreen() {
               <h2 className="text-lg font-bold">{filter ? t(`bucket.${filter}`) : t('today.priority')}</h2>
               <span className="text-sm text-muted-foreground">{t('today.priorityHint')}</span>
             </div>
-            {visible.length === 0 && (
-              <div className="flex items-center gap-3 rounded-2xl bg-known-soft p-5">
-                <CircleCheckBigIcon className="size-7 text-known" />
-                <span className="font-semibold">{t('today.nobody')}</span>
+            {patients.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed px-6 py-12 text-center">
+                <span className="flex size-12 items-center justify-center rounded-2xl bg-secondary text-primary">
+                  <MessageCircleIcon className="size-6" />
+                </span>
+                <p className="text-lg font-bold">{t('today.empty.title')}</p>
+                <p className="max-w-md text-muted-foreground">{t('today.empty.hint')}</p>
               </div>
+            ) : (
+              visible.length === 0 && (
+                <div className="flex items-center gap-3 rounded-2xl bg-known-soft p-5">
+                  <CircleCheckBigIcon className="size-7 text-known" />
+                  <span className="font-semibold">{t('today.nobody')}</span>
+                </div>
+              )
             )}
             {visible.map((row, i) => {
               const header = !filter && (i === 0 || visible[i - 1].follow.bucket !== row.follow.bucket)

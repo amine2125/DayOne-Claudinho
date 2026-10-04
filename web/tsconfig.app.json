@@ -28,9 +28,6 @@
       ],
       "@schema/*": [
         "../schema/*"
-      ],
-      "@predictions/*": [
-        "../outputs/predictions/*"
       ]
     },
     "resolveJsonModule": true

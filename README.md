@@ -30,17 +30,16 @@ ollama pull qwen3-vl:2b-instruct
 
 ## Utilisation
 
-**Le plus simple : double-cliquer sur `DayOne.command`.** Ollama et l'interface démarrent, et le navigateur s'ouvre sur http://localhost:8501. Fermer la fenêtre noire arrête tout.
+L'interface est le tableau de bord web dans `web/` (voir [web/README.md](web/README.md)) :
 
-(Au premier lancement, macOS peut bloquer le fichier : clic droit → Ouvrir → Ouvrir.)
+```bash
+cd web && npm install && npm run dev
+```
 
-Dans l'interface : choisir une photo ou une page, cliquer sur **Lire la page**, corriger dans le tableau si besoin, puis **Télécharger le résultat**.
-
-En ligne de commande :
+La lecture des pages se lance en ligne de commande :
 
 | Je veux… | Commande |
 |---|---|
-| L'interface | `.venv/bin/streamlit run app.py` |
 | Lire toutes les pages dev | `.venv/bin/python -m scripts.run_extraction` |
 | Lire une photo | `.venv/bin/python -m scripts.run_extraction --image photo.jpg --page-type identification_antecedents` |
 | Créer les fichiers de référence à remplir | `.venv/bin/python -m scripts.make_annotation_templates` (voir `annotations/LISEZMOI.md`) |

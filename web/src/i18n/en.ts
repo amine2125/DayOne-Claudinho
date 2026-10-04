@@ -183,7 +183,7 @@ export const en: Dict = {
   'patients.title': 'Patients',
   'patients.subtitle': 'Codes only: no name, phone or address is ever stored.',
   'patients.search': 'Search a code',
-  'patients.empty': 'No patient.',
+  'patients.empty': 'No patient yet.',
 
   'patient.label': 'Patient',
   'patient.internalId': 'Internal ID',
@@ -224,6 +224,8 @@ export const en: Dict = {
   'fact.nn_sexe': 'Newborn',
 
   'today.subtitle': 'who to see first',
+  'today.empty.title': 'No patient yet',
+  'today.empty.hint': 'Files will appear here automatically as soon as midwives send registry photos on WhatsApp.',
   'today.priority': 'By priority',
   'today.priorityHint': 'Based on the booklet calendar. Click to open the file.',
   'today.photoWaiting': '{n} photo(s) received for this code, not processed yet',
@@ -288,8 +290,8 @@ export const en: Dict = {
   'settings.privacy.2': 'A patient = a code written on the registry + a random internal ID.',
   'settings.privacy.3': 'On the photo, personal zones are always masked.',
   'settings.privacy.4': 'AI reading runs locally, with no external service.',
-  'settings.reset': 'Reset the demo',
-  'settings.resetDone': 'Demo reset',
+  'settings.reset': 'Clear this browser’s data',
+  'settings.resetDone': 'Data cleared',
 
 
 }
