@@ -1,29 +1,24 @@
-"""Mise en forme WhatsApp des sorties DayOne et lecture des corrections.
+"""Mise en forme WhatsApp des pages lues par l'API DayOne, et lecture des corrections.
 
-Une page analysée a la forme produite par `dayone.extract.extract_page` :
-    {"page_type": "...", "fields": {"age": {"value": 31, "status": "KNOWN", "confidence": 0.94}, ...}}
+Une page vient de GET /api/records/{id} :
+    {"index": 0, "pageType": "...", "title": "...", "error": "..." (si illisible),
+     "fields": {"age": {"label": "Age", "kind": "integer", "section": "Identification",
+                        "value": 31, "status": "KNOWN", ...}, ...}}
 
-Les libellés viennent de `schema/*.json` (source de vérité de DayOne). Chaque champ porte
-un numéro stable (sa position dans le schéma) : c'est ce numéro que l'utilisateur tape pour corriger.
+Chaque champ porte un numéro (sa position dans la liste affichée) : c'est ce numéro que
+l'utilisateur tape pour corriger. Le même ordre sert à l'affichage et à la correction.
 """
 
-import json
-import logging
 import re
 from dataclasses import dataclass
 from datetime import date
-from functools import lru_cache
-from pathlib import Path
-
-from app.config import get_settings
-
-logger = logging.getLogger(__name__)
 
 # Statuts qui ont quelque chose à montrer (les cases vides et non applicables sont tues)
 SHOWN_STATUSES = ("KNOWN", "UNKNOWN", "NEEDS_REVIEW", "ILLEGIBLE")
-# Statuts qui demandent l'œil de la sage-femme
+# Statuts qui demandent l'œil de la sage-femme (les mêmes que l'API : store.TO_REVIEW)
 UNCERTAIN_STATUSES = ("NEEDS_REVIEW", "ILLEGIBLE")
 
+PAGE_NAMES = {"identification_antecedents": "Identification et antécédents", "accouchement": "Accouchement"}
 UNITS = {"weight": "g", "length": "cm", "weeks": "SA"}
 NUMERIC_KINDS = ("integer", "weight", "length", "weeks")
 UNKNOWN_WORDS = {"?", "??", "inconnu", "inconnue", "nsp", "ne sait pas"}
@@ -41,58 +36,57 @@ KIND_HINTS = {
     "sex": "*F* ou *M*",
     "text": "le texte tel qu'écrit sur la page",
 }
+REASONS = {
+    "non_rattache": "écriture rattachée à aucun champ",
+    "etiquette_douteuse": "étiquette mal lue",
+    "champ_nouveau": "champ inconnu du registre",
+    "choix_nouveau": "case inconnue du registre",
+    "valeur_douteuse": "lecture incertaine",
+}
+LINK_REASONS = {
+    "SAME_CODE": "même code",
+    "SIMILAR_CODE": "code proche",
+    "SAME_AGE": "même âge",
+    "CLOSE_AGE": "âge proche",
+    "SAME_GESTATION": "même gestation",
+}
 
 
 @dataclass(frozen=True)
-class FieldDef:
+class NumberedField:
     number: int
-    id: str
-    label: str
-    group: str
-    kind: str
+    key: str
+    field: dict
+
+    @property
+    def label(self) -> str:
+        return self.field.get("label") or self.key.replace("_", " ").capitalize()
+
+    @property
+    def kind(self) -> str:
+        return self.field.get("kind") or "text"
 
 
-@dataclass(frozen=True)
-class PageDef:
-    page_type: str
-    title: str
-    fields: tuple[FieldDef, ...]
-
-    def by_number(self, number: int) -> FieldDef | None:
-        return self.fields[number - 1] if 1 <= number <= len(self.fields) else None
+def page_name(page: dict) -> str:
+    return PAGE_NAMES.get(page.get("pageType", "")) or page.get("title") or "Page"
 
 
-def schema_dir() -> Path:
-    configured = get_settings().SCHEMA_DIR
-    # Par défaut : le dossier schema/ de DayOne, à côté de whatsapp-bot/
-    return Path(configured) if configured else Path(__file__).resolve().parents[2] / "schema"
+def numbered_fields(page: dict) -> list[NumberedField]:
+    """Champs regroupés par section (dans l'ordre où les sections apparaissent), puis numérotés."""
+    sections: dict[str, list[tuple[str, dict]]] = {}
+    for key, field in page.get("fields", {}).items():
+        sections.setdefault(field.get("section", ""), []).append((key, field))
+    ordered = [item for items in sections.values() for item in items]
+    return [NumberedField(i, key, field) for i, (key, field) in enumerate(ordered, start=1)]
 
 
-@lru_cache
-def load_page_def(page_type: str) -> PageDef | None:
-    path = schema_dir() / f"{page_type}.json"
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as exc:
-        logger.warning("Schema not available for page_type=%s (%s)", page_type, exc)
-        return None
-    fields = tuple(
-        FieldDef(i, f["id"], f["label"], f.get("group", ""), f.get("kind", "text"))
-        for i, f in enumerate(raw["fields"], start=1)
-    )
-    return PageDef(raw["page_type"], raw.get("title", page_type), fields)
+def by_number(page: dict, number: int) -> NumberedField | None:
+    fields = numbered_fields(page)
+    return fields[number - 1] if 1 <= number <= len(fields) else None
 
 
-def page_def_for(page: dict) -> PageDef:
-    """Schéma de la page ; à défaut, un schéma déduit des champs reçus (libellé = identifiant)."""
-    found = load_page_def(page.get("page_type", ""))
-    if found:
-        return found
-    fields = tuple(
-        FieldDef(i, fid, fid.replace("_", " ").capitalize(), "", "text")
-        for i, fid in enumerate(page.get("fields", {}), start=1)
-    )
-    return PageDef(page.get("page_type", "inconnu"), "Page non reconnue", fields)
+def uncertain(page: dict) -> list[NumberedField]:
+    return [f for f in numbered_fields(page) if f.field.get("status") in UNCERTAIN_STATUSES]
 
 
 # --- Valeurs ---
@@ -106,7 +100,7 @@ def format_value(kind: str, field: dict) -> str:
         return "illisible"
     if status in ("NOT_PROVIDED", "NOT_APPLICABLE") or value is None:
         return "?" if status == "NEEDS_REVIEW" else "—"
-    if kind == "checkbox":
+    if kind == "checkbox" or isinstance(value, bool):
         return "Oui" if value is True else str(value)
     if kind == "date" and isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
         y, m, d = value.split("-")
@@ -166,45 +160,34 @@ def parse_value(kind: str, text: str) -> tuple[object, str]:
 
 # --- Messages ---
 
-def counts(page: dict) -> tuple[int, list[FieldDef]]:
-    """(nombre de valeurs lues, champs incertains)."""
-    pdef = page_def_for(page)
-    fields = page.get("fields", {})
-    shown = sum(1 for f in pdef.fields if fields.get(f.id, {}).get("status") in SHOWN_STATUSES)
-    uncertain = [f for f in pdef.fields if fields.get(f.id, {}).get("status") in UNCERTAIN_STATUSES]
-    return shown, uncertain
-
-
-def field_line(fdef: FieldDef, field: dict) -> str:
-    flag = "⚠️ " if field.get("status") in UNCERTAIN_STATUSES else ""
-    edited = " ✏️" if field.get("source") == "sage-femme" else ""
-    return f"{fdef.number}. {flag}{fdef.label} : *{format_value(fdef.kind, field)}*{edited}"
+def field_line(nf: NumberedField) -> str:
+    flag = "⚠️ " if nf.field.get("status") in UNCERTAIN_STATUSES else ""
+    edited = " ✏️" if nf.field.get("origin") in ("CORRECTED", "MANUAL") else ""
+    return f"{nf.number}. {flag}{nf.label} : *{format_value(nf.kind, nf.field)}*{edited}"
 
 
 def values_text(page: dict, include_empty: bool = False) -> str:
-    """Liste numérotée des valeurs, regroupées par section du registre."""
-    pdef = page_def_for(page)
-    fields = page.get("fields", {})
-    lines, current_group = [], None
-    for fdef in pdef.fields:
-        field = fields.get(fdef.id, {"value": None, "status": "NOT_PROVIDED"})
-        if not include_empty and field.get("status") not in SHOWN_STATUSES:
+    """Liste numérotée des valeurs, regroupées par section."""
+    lines, current = [], None
+    for nf in numbered_fields(page):
+        if not include_empty and nf.field.get("status") not in SHOWN_STATUSES:
             continue
-        if fdef.group and fdef.group != current_group:
-            current_group = fdef.group
-            lines.append(f"\n*{current_group}*")
-        lines.append(field_line(fdef, field))
+        section = nf.field.get("section")
+        if section and section != current:
+            current = section
+            lines.append(f"\n*{section}*")
+        lines.append(field_line(nf))
     return "\n".join(lines).strip() or "Aucune valeur lue sur cette page."
 
 
-def review_text(page: dict, index: int, total: int) -> str:
-    pdef = page_def_for(page)
-    shown, uncertain = counts(page)
-    lines = [f"📄 *Page {index + 1}/{total} · {pdef.title}*", f"📊 {shown} valeur(s) lue(s)"]
-    if uncertain:
-        names = ", ".join(f"{f.number}. {f.label}" for f in uncertain[:5])
-        more = f" (+{len(uncertain) - 5})" if len(uncertain) > 5 else ""
-        lines.append(f"⚠️ {len(uncertain)} à vérifier : {names}{more}")
+def review_text(page: dict, position: int, total: int) -> str:
+    shown = sum(1 for nf in numbered_fields(page) if nf.field.get("status") in SHOWN_STATUSES)
+    doubts = uncertain(page)
+    lines = [f"📄 *Page {position + 1}/{total} · {page_name(page)}*", f"📊 {shown} valeur(s) lue(s)"]
+    if doubts:
+        names = ", ".join(f"{nf.number}. {nf.label}" for nf in doubts[:5])
+        more = f" (+{len(doubts) - 5})" if len(doubts) > 5 else ""
+        lines.append(f"⚠️ {len(doubts)} à vérifier : {names}{more}")
     else:
         lines.append("✅ Aucune incertitude restante.")
     lines += [
@@ -219,24 +202,62 @@ def review_text(page: dict, index: int, total: int) -> str:
     return "\n".join(lines)
 
 
-def failed_page_text(page: dict, index: int, total: int) -> str:
+def confirm_uncertain_text(page: dict) -> str:
+    doubts = uncertain(page)
+    listed = "\n".join(
+        f"• {nf.number}. {nf.label} : *{format_value(nf.kind, nf.field)}*"
+        + (f" ({REASONS[nf.field['reason']]})" if nf.field.get("reason") in REASONS else "")
+        for nf in doubts[:15]
+    )
     return (
-        f"❌ *Page {index + 1}/{total} · lecture impossible*\n"
-        f"{page.get('error', 'Raison inconnue.')}\n\n"
-        "4️⃣ Reprendre la photo\n"
-        "5️⃣ Ignorer cette page\n"
+        f"⚠️ *{len(doubts)} valeur(s) restent à vérifier :*\n{listed}\n\n"
+        "1️⃣ Je les ai vérifiées sur le registre : confirmer telles quelles\n"
+        "2️⃣ Corriger un champ\n"
         "👉 Répondez avec le chiffre."
     )
 
 
-def final_text(pages: list[dict]) -> str:
-    """Récapitulatif propre envoyé une fois le registre confirmé."""
-    parts = [f"✅ *Registre confirmé* · {len(pages)} page(s)"]
+def failed_page_text(page: dict, position: int, total: int, can_drop: bool) -> str:
+    lines = [
+        f"❌ *Page {position + 1}/{total} · lecture impossible*",
+        page.get("error") or "Raison inconnue.",
+        "",
+        "4️⃣ Reprendre la photo",
+    ]
+    if can_drop:
+        lines.append("5️⃣ Ignorer cette page")
+    lines.append("👉 Répondez avec le chiffre.")
+    return "\n".join(lines)
+
+
+def _num(i: int) -> str:
+    """1️⃣ … 9️⃣ ; au-delà, « 10. » (il n'existe pas de pastille 10)."""
+    return f"{i}️⃣" if i < 10 else f"{i}."
+
+
+def link_text(code: str, candidates: list[dict]) -> str:
+    if not candidates:
+        return (
+            f"👤 Aucune patiente suivie avec le code *{code}*.\n\n"
+            "1️⃣ Créer la patiente\n"
+            "2️⃣ Je ne sais pas (à vérifier plus tard)\n"
+            "👉 Répondez avec le chiffre."
+        )
+    lines = [f"👤 *Ce registre ({code}) est-il celui d'une patiente déjà suivie ?*", ""]
+    for i, cand in enumerate(candidates, start=1):
+        why = ", ".join(LINK_REASONS.get(r["kind"], r["kind"]) for r in cand.get("reasons", []))
+        lines.append(f"{_num(i)} {cand['code']}" + (f" · {why}" if why else ""))
+    n = len(candidates)
+    lines += [f"{_num(n + 1)} Non, nouvelle patiente", f"{_num(n + 2)} Je ne sais pas (à vérifier plus tard)",
+              "👉 Répondez avec le chiffre."]
+    return "\n".join(lines)
+
+
+def final_text(record: dict) -> str:
+    """Récapitulatif propre envoyé une fois le registre validé et rattaché."""
+    pages = record.get("pages", [])
+    parts = [f"✅ *Registre enregistré* · code {record.get('patientCode', '')} · {len(pages)} page(s)"]
     for i, page in enumerate(pages):
-        pdef = page_def_for(page)
-        _, uncertain = counts(page)
-        header = f"\n📄 *Page {i + 1} · {pdef.title}*"
-        if uncertain:
-            header += f"\n⚠️ {len(uncertain)} valeur(s) restent à vérifier"
-        parts.append(header + "\n" + values_text(page))
+        parts.append(f"\n📄 *Page {i + 1} · {page_name(page)}*\n{values_text(page)}")
+    parts.append("\n📊 Le dossier est visible sur le tableau de bord.")
     return "\n".join(parts)

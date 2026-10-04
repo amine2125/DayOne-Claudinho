@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { Lang, PageType } from '@/contract/enums'
 import { fieldDef, type FieldKind } from '@/contract/registry'
-import type { FieldValue } from '@/contract/types'
+import type { FieldValue, Page } from '@/contract/types'
 import { useAppState } from '@/services'
 import { en } from './en'
 import { FIELDS_EN, SECTIONS_EN } from './fields.en'
@@ -21,8 +21,12 @@ export function useT() {
   )
   return Object.assign(t, {
     lang,
-    field: (pageType: PageType, key: string) =>
-      (lang === 'en' ? FIELDS_EN[key] : undefined) ?? fieldDef(pageType, key)?.label ?? key,
+    /** English label for reference fields; otherwise the label read on the page. */
+    field: (pageType: PageType, key: string, label?: string) =>
+      (lang === 'en' ? FIELDS_EN[key] : undefined) ?? label ?? fieldDef(pageType, key)?.label ?? key,
+    /** Page name: its reference type, or the title read on it. */
+    page: (p: Pick<Page, 'pageType' | 'title'>) =>
+      p.pageType === 'unknown' && p.title ? p.title : DICTS[lang][`page.${p.pageType}` as TKey],
     section: (id: string) => (lang === 'en' ? SECTIONS_EN[id] : undefined) ?? id,
     date: (iso: string | undefined, withTime = false) => {
       if (!iso) return '—'

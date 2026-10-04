@@ -50,3 +50,44 @@ Le 4b fait trop chauffer la machine (8 Go) → **2b par défaut**.
 - Cases : part d'encre de 0 si vide, d'au moins 0,08 si cochée, sur les 16 pages dev. Seuils retenus : 0,02 et 0,06.
 - PaddleOCR lit mieux la zone **brute** agrandie ×2 qu'une zone nettoyée (le nettoyage casse les traits fins).
 - La police manuscrite synthétique n'a pas certains glyphes accentués : « Commer ante », « Maternit » sont réellement écrits ainsi sur la page.
+
+## Passage à la lecture sans gabarit
+
+- Objectif : lire n'importe quelle fiche, pas seulement la mise en page du jeu de données.
+- Les 5 photos `1-*.jpg` viennent d'un vrai carnet : mise en page différente, photo de travers, écriture très libre.
+- Modèles comparés sur une bande de page (photo `1-2`, page dev 26) :
+
+| Modèle | Lecture | Temps par bande (M4) |
+|---|---|---|
+| `qwen3-vl:2b-instruct` | Étiquettes justes, valeurs souvent fausses (« QNams », « N/A » pour RAS) | ~8 s |
+| `qwen3-vl:4b-instruct` | Valeurs justes sur les pages nettes, « 21ans » sur la photo | ~20 s |
+| `qwen3-vl:8b-instruct` | Pas mieux que le 4b sur la photo difficile | ~30 s |
+
+  → **4b par défaut**.
+- Ce que le modèle fait mal, et ce qui le remplace :
+  - cases à cocher : le modèle se trompe souvent → OpenCV (4 côtés du carré + encre dedans) ;
+  - tableaux lus par bandes : la ligne se perd → tableau entier, consigne « ligne | colonne » ;
+  - étiquettes inventées (« row label - column label ») → supprimées si leurs mots ne sont pas sur la page.
+- Comparaison aux anciens résultats du gabarit (pages 2 et 26) : aucune valeur différente sur les champs lus des deux côtés.
+- Photos refusées : image sans texte, page de texte qui n'est pas une fiche de santé.
+
+## Version finale : « OCR d'abord »
+
+- Le modèle lisait toute la page (2 à 3 min par page, Mac qui chauffe). Inversion : PaddleOCR lit tout, les valeurs
+  sont reliées aux étiquettes par la position, le modèle ne relit que les valeurs douteuses sur un petit morceau.
+- Temps mesuré : ~45 à 75 s par page (dont ~10 s d'OCR).
+- Page 26 : 45 valeurs justes, 2 « à vérifier ». Page 2 et page 4 : quasi complètes, cases cochées justes.
+- Fuite trouvée et corrigée : un morceau d'image envoyé au modèle débordait sur la ligne « Adresse ».
+  Les zones des champs personnels sont maintenant effacées avant tout envoi au modèle.
+
+## Photos réelles (photo `1-1`)
+
+- Encre bleue invisible au seuil fixe : sous lampe chaude, tout tire vers le rose (imprimé B−R ≈ −50, stylo ≈ −25).
+  Correction : balance des couleurs sur le papier, puis « plus bleu que l'imprimé de la même page » (`blue_map`).
+- L'OCR lit souvent « Étiquette : écriture » d'un bloc : la ligne est coupée là où commence l'encre bleue.
+- Écriture grande → hauteur de texte de référence prise sur l'imprimé seulement (sinon les cases sont jugées trop petites).
+- Cases : texte le plus proche (gauche ou droite) ; intitulé de groupe ajouté (« Mode de la couverture | Fixe »).
+  Lettres de titre écartées : il faut un espace vide autour de la case.
+- Le modèle lit mieux une valeur manuscrite quand le morceau d'image inclut l'étiquette
+  (« Casa - Sittat » au lieu de « Cax - S - T H T »).
+- Limite : sur cette photo, l'OCR ne détecte pas la ligne « Nom de l'établissement sanitaire ».

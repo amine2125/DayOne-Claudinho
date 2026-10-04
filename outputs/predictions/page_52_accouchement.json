@@ -1,220 +1,360 @@
 {
- "page_type": "accouchement",
  "source": "page 52",
- "mode": "gabarit",
- "model": "qwen3-vl:2b-instruct",
+ "title": "DÉROULEMENT DE L'ACCOUCHEMENT",
+ "mode": "generique",
+ "model": "qwen3-vl:4b-instruct",
  "threshold": 0.7,
- "alignment_inliers": 984,
  "timings": {
-  "alignement_s": 0.1,
-  "ocr_s": 1.8,
-  "modele_s": 4.8,
-  "total_s": 6.8
+  "ocr_s": 8.7,
+  "modele_s": 67.2,
+  "total_s": 76.0
  },
- "fields": {
-  "lieu_milieu_surveille": {
+ "ignores": {
+  "personnels": 1,
+  "non_retrouves": 0
+ },
+ "fields": [
+  {
+   "id": "maison_d_accouchement",
+   "label": "Maison d'accouchement",
+   "kind": "checkbox",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
+   "confidence": 0.9,
    "source": "case"
   },
-  "lieu_maison_accouchement": {
+  {
+   "id": "en_milieu_surveille_en",
+   "label": "En milieu surveillé En",
+   "kind": "checkbox",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
+   "confidence": 0.9,
    "source": "case"
   },
-  "lieu_maternite": {
+  {
+   "id": "i_i",
+   "label": "I I",
+   "kind": "checkbox",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
+   "confidence": 0.9,
    "source": "case"
   },
-  "lieu_clinique_privee": {
+  {
+   "id": "champ",
+   "label": "π π",
+   "kind": "checkbox",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
+   "confidence": 0.9,
    "source": "case"
   },
-  "lieu_autre": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
-  },
-  "lieu_domicile": {
+  {
+   "id": "a_domicile_a",
+   "label": "A domicile A",
+   "kind": "checkbox",
    "value": true,
    "status": "KNOWN",
-   "confidence": 1.0,
+   "confidence": 0.9,
    "source": "case"
   },
-  "domicile_assiste_qualifie": {
+  {
+   "id": "assiste_par_un_personnel_qualifie",
+   "label": "Assisté par un personnel qualifié",
+   "kind": "checkbox",
    "value": true,
    "status": "KNOWN",
-   "confidence": 1.0,
+   "confidence": 0.9,
    "source": "case"
   },
-  "domicile_autre": {
+  {
+   "id": "voie_basse_non_instrumentale",
+   "label": "Voie basse non instrumentale",
+   "kind": "checkbox",
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "voie_basse_instrumentale",
+   "label": "Voie basse instrumentale",
+   "kind": "checkbox",
    "value": null,
    "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "encre"
+   "confidence": 0.9,
+   "source": "case"
   },
-  "date_accouchement": {
+  {
+   "id": "forceps",
+   "label": "Forceps",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "ventouse",
+   "label": "Ventouse",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "avec_episiotomie",
+   "label": "Avec épisiotomie",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "urgence",
+   "label": "Urgence",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "cesarienne_programmee",
+   "label": "Césarienne : Programmée",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "presence_de_complications",
+   "label": "Présence de complications σ",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "suites_de_couches",
+   "label": "σ Suites de couches σ",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "pre_eclampsie",
+   "label": "Pré-éclampsie",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "eclampsie",
+   "label": "Eclampsie",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "hemorragie",
+   "label": "Hémorragie",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "infection",
+   "label": "Infection",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "autres",
+   "label": "Autres",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "deces_24_heures",
+   "label": "Décès < 24 heures",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "vivant",
+   "label": "Vivant",
+   "kind": "checkbox",
+   "value": true,
+   "status": "KNOWN",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "mort_ne",
+   "label": "Mort-né",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.9,
+   "source": "case"
+  },
+  {
+   "id": "lieu",
+   "label": "Lieu",
+   "kind": "text",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.7,
+   "source": "modele"
+  },
+  {
+   "id": "maternite",
+   "label": "Maternité",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.6,
+   "source": "modele"
+  },
+  {
+   "id": "clinique_privee",
+   "label": "Clinique privée",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.6,
+   "source": "modele"
+  },
+  {
+   "id": "autres_2",
+   "label": "Autres",
+   "kind": "text",
+   "value": "....................................................",
+   "status": "KNOWN",
+   "confidence": 0.8,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "date_de_l_accouchement",
+   "label": "Date de l'accouchement",
+   "kind": "date",
    "value": "2026-08-28",
    "status": "KNOWN",
-   "confidence": 0.993,
-   "source": "ocr"
+   "confidence": 0.991,
+   "source": "modele+ocr"
   },
-  "mode_voie_basse_non_instrumentale": {
+  {
+   "id": "mode_de_l_accouchement",
+   "label": "Mode de l'accouchement",
+   "kind": "checkbox",
    "value": true,
-   "status": "KNOWN",
-   "confidence": 1.0,
-   "source": "case"
-  },
-  "mode_voie_basse_instrumentale": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "mode_forceps": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "mode_ventouse": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "mode_episiotomie": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "mode_cesarienne_programmee": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "mode_cesarienne_urgence": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "cesarienne_indication": {
-   "value": null,
-   "status": "NOT_APPLICABLE",
-   "confidence": 0.95,
-   "source": "regle"
-  },
-  "complications_presence": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "complications_accouchement": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "complications_suites_couches": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_pre_eclampsie": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_eclampsie": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_hemorragie": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_infection": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_autres": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "compl_autres_precision": {
-   "value": null,
-   "status": "NOT_APPLICABLE",
-   "confidence": 0.95,
-   "source": "regle"
-  },
-  "nn_vivant": {
-   "value": true,
-   "status": "KNOWN",
-   "confidence": 1.0,
-   "source": "case"
-  },
-  "nn_mort_ne": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "nn_deces_24h": {
-   "value": null,
-   "status": "NOT_PROVIDED",
-   "confidence": 0.95,
-   "source": "case"
-  },
-  "nn_sexe": {
-   "value": "F",
    "status": "NEEDS_REVIEW",
    "confidence": 0.5,
-   "source": "ocr+modele"
+   "source": "modele"
   },
-  "nn_poids": {
+  {
+   "id": "preciser_l_indication",
+   "label": "Préciser l'indication",
+   "kind": "text",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.7,
+   "source": "modele"
+  },
+  {
+   "id": "au_moment_de_l_accouchement",
+   "label": "Au moment de l'accouchement",
+   "kind": "checkbox",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.6,
+   "source": "modele"
+  },
+  {
+   "id": "type_de_complications",
+   "label": "Type de complications",
+   "kind": "text",
+   "value": null,
+   "status": "NOT_PROVIDED",
+   "confidence": 0.7,
+   "source": "modele"
+  },
+  {
+   "id": "si_autres_a_preciser",
+   "label": "Si autres à préciser",
+   "kind": "text",
+   "value": "............................",
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "modele"
+  },
+  {
+   "id": "sexe",
+   "label": "Sexe",
+   "kind": "sex",
+   "value": "F",
+   "status": "KNOWN",
+   "confidence": 0.958,
+   "source": "modele+ocr"
+  },
+  {
+   "id": "poids_a_la_naissance",
+   "label": "Poids à la naissance",
+   "kind": "weight",
    "value": 3430,
    "status": "KNOWN",
-   "confidence": 0.955,
-   "source": "ocr"
+   "confidence": 0.979,
+   "source": "modele+ocr"
   },
-  "nn_perimetre_cranien": {
+  {
+   "id": "perimetre_cranien_a_la_naissance",
+   "label": "Périmètre crânien à la naissance",
+   "kind": "length",
    "value": 35,
    "status": "KNOWN",
-   "confidence": 0.894,
-   "source": "ocr"
+   "confidence": 0.984,
+   "source": "modele+ocr"
   },
-  "nn_anomalie": {
+  {
+   "id": "anomalie_a_preciser",
+   "label": "Anomalie à préciser",
+   "kind": "text",
    "value": "aucun",
    "status": "KNOWN",
-   "confidence": 0.924,
-   "source": "ocr"
+   "confidence": 0.992,
+   "source": "modele+ocr"
   },
-  "nn_age_gestationnel": {
+  {
+   "id": "age_gestationnel",
+   "label": "Âge gestationnel",
+   "kind": "weeks",
    "value": 39,
-   "status": "KNOWN",
-   "confidence": 0.988,
-   "source": "ocr"
+   "status": "NEEDS_REVIEW",
+   "confidence": 0.5,
+   "source": "modele"
   }
- }
+ ]
 }

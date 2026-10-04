@@ -13,12 +13,13 @@ export interface Zone {
   tone: 'review' | 'focus' | 'muted'
 }
 
-/** Personal-data zones for this page, or null when the photo does not match the template. */
+/** Personal-data zones to draw over the photo, or null when they are not known (photo blurred). */
 function masksFor(page: Page): BBox[] | null {
+  if (page.masked) return [] // blacked out by the API before serving the image
   const schema = SCHEMAS[page.pageType]
   if (!schema) return null
   const [w, h] = schema.imageSize
-  return page.imageSize[0] === w && page.imageSize[1] === h ? schema.excludedZones : null
+  return w && page.imageSize[0] === w && page.imageSize[1] === h ? schema.excludedZones : null
 }
 
 const pct = (v: number, of: number) => `${(v / of) * 100}%`

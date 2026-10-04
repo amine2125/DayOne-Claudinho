@@ -5,7 +5,7 @@ import pytest
 
 from api import store
 
-PRED = json.load(open(store.ROOT / "outputs/predictions/page_02_identification_antecedents.json"))
+PRED = json.load(open(store.ROOT / "outputs/predictions/page_02_identification_antecedents.json", encoding="utf-8"))
 
 
 @pytest.fixture(autouse=True)
@@ -17,8 +17,8 @@ def tmp_store(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "_fernet", None)
 
 
-def fake_extract(data, page_type=None, use_model=True):
-    return {**PRED, "mode": "modele_seul"}       # pas d'alignement : pas de vue masquée à produire
+def fake_extract(data, use_model=True):
+    return dict(PRED)                            # sans zones_masquees : pas de vue masquée à produire
 
 
 def captured(code="AMN-27"):
@@ -56,6 +56,57 @@ def test_lecture_impossible_donne_echec():
     store.process_record(rid, extract=lambda *a, **k: (_ for _ in ()).throw(ValueError("mise en page")))
     rec = store.snapshot(str)["records"][rid]
     assert rec["state"] == "PROCESSING_FAILED" and rec["failure"]["reason"] == "LAYOUT"
+    assert rec["pages"][0]["error"] == "mise en page"
+
+
+def test_champs_ranges_dans_le_contrat():
+    rid = captured()
+    page = store.snapshot(str)["records"][rid]["pages"][0]
+    assert page["pageType"] == "identification_antecedents" and page["title"]
+    age = page["fields"]["age"]
+    assert (age["label"], age["kind"], age["section"], age["value"]) == ("Age", "integer", "Identification", 31)
+    autres = [f for f in page["fields"].values() if f["section"] == store.OTHER_SECTION]
+    assert autres and all(f["label"] for f in autres)        # champ hors référence : gardé, avec son libellé
+
+
+def test_page_inconnue_si_aucune_reference_ne_correspond():
+    pred = {"title": "Fiche", "fields": [{"id": "x", "label": "Patate", "kind": "text",
+                                          "value": "a", "status": "KNOWN", "confidence": 0.9}]}
+    assert store.page_type_of(pred) == "unknown"
+    assert store.fields_from_prediction(pred, 0, "t")["x"]["section"] == store.OTHER_SECTION
+
+
+def test_une_page_ratee_parmi_d_autres_se_reprend():
+    rid = store.create_record("AMN-30", "SF-014", [b"bonne", b"floue"])
+
+    def extract(data, use_model=True):
+        if data == b"floue":
+            raise ValueError("Presque aucun texte sur cette image : ce n'est pas une fiche à lire.")
+        return fake_extract(data)
+
+    store.process_record(rid, extract=extract)
+    rec = store.snapshot(str)["records"][rid]
+    assert rec["state"] == "NEEDS_REVIEW" and rec["pages"][1]["error"].startswith("Presque")
+    store.set_field(rid, 0, "age", "SF-014", value=32, status="KNOWN")
+    with pytest.raises(store.TransitionError):
+        store.validate(rid)                       # une page non lue bloque la validation
+
+    store.replace_page(rid, 1, b"nette")
+    store.process_record(rid, extract=extract)
+    rec = store.snapshot(str)["records"][rid]
+    assert "error" not in rec["pages"][1] and rec["pages"][1]["fields"]
+    assert rec["pages"][0]["fields"]["age"]["value"] == 32   # la correction de la page 1 est gardée
+
+
+def test_retirer_une_page_illisible():
+    rid = store.create_record("AMN-31", "SF-014", [b"bonne", b"floue"])
+    store.process_record(rid, extract=lambda d, use_model=True: fake_extract(d) if d == b"bonne"
+                         else (_ for _ in ()).throw(ValueError("illisible")))
+    store.drop_page(rid, 1)
+    rec = store.snapshot(str)["records"][rid]
+    assert len(rec["pages"]) == 1
+    with pytest.raises(store.TransitionError):
+        store.drop_page(rid, 0)                   # page lue (et seule) : on ne la retire pas
 
 
 def test_correction_garde_la_valeur_de_l_ia():

@@ -1,29 +1,32 @@
-"""Tests du flux de conversation : photos → lecture → menu → correction → confirmation."""
+"""Parcours WhatsApp de bout en bout, contre la vraie API DayOne (api/main.py) lancée dans le test.
 
-import copy
-import json
+Seuls Meta (envoi/téléchargement) est simulé. La lecture est le mode démo de l'API : elle rejoue
+les vraies sorties de dayone.extract enregistrées dans outputs/predictions/.
+"""
+
+import sys
 from pathlib import Path
 
 import httpx
 import pytest
 
-from app import backend, conversation, render
-from app.config import get_settings
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.append(str(ROOT))   # à la fin : `app` reste le paquet du bot, pas app.py de la racine
+
+import api.main as api_main  # noqa: E402
+from api import store  # noqa: E402
+from app import backend, conversation, render  # noqa: E402
+from app.config import get_settings  # noqa: E402
 
 PHONE = "33612345678"
-PREDICTIONS = Path(__file__).resolve().parents[2] / "outputs" / "predictions"
-SAMPLE = json.loads((PREDICTIONS / "page_02_identification_antecedents.json").read_text(encoding="utf-8"))
 
 
 class FakeWhatsApp:
-    """Remplace Meta et notre API : enregistre ce que le bot envoie."""
+    """Remplace Meta : enregistre ce que le bot envoie, fournit les photos."""
 
     def __init__(self):
         self.sent: list[str] = []
         self.buttons: list[list[str]] = []
-        self.analyses = 0
-        self.saved: list[list[dict]] = []
-        self.next_pages: list = []  # pages (ou exceptions) renvoyées par l'API, dans l'ordre
 
     async def send_text(self, to, body):
         self.sent.append(body)
@@ -33,34 +36,35 @@ class FakeWhatsApp:
         self.buttons.append([bid for bid, _ in buttons])
 
     async def download_media(self, media_id):
-        return b"jpeg-bytes", "image/jpeg"
-
-    async def analyze_page(self, image_bytes, mime_type, user_phone, caption=None):
-        self.analyses += 1
-        result = self.next_pages.pop(0) if self.next_pages else copy.deepcopy(SAMPLE)
-        if isinstance(result, Exception):
-            raise result
-        return result
-
-    async def save_record(self, user_phone, pages):
-        self.saved.append(pages)
-        return True
+        return media_id.encode(), "image/jpeg"   # octets = id du média : choisit la sortie démo
 
     @property
     def last(self) -> str:
         return self.sent[-1]
 
-    def all_since(self, start: int) -> str:
+    def since(self, start: int) -> str:
         return "\n".join(self.sent[start:])
 
 
 @pytest.fixture
-def wa(monkeypatch):
+def wa(monkeypatch, tmp_path):
     monkeypatch.setenv("WHATSAPP_TOKEN", "test")
     monkeypatch.setenv("PHONE_NUMBER_ID", "123")
+    monkeypatch.setenv("APP_SECRET", "secret")
+    monkeypatch.setenv("DAYONE_DEMO_EXTRACT", "1")
     get_settings.cache_clear()
+    # Base temporaire
+    monkeypatch.setattr(store, "DB_PATH", tmp_path / "test.db")
+    monkeypatch.setattr(store, "CAPTURES", tmp_path / "captures")
+    monkeypatch.setattr(store, "KEY_FILE", tmp_path / "key")
+    monkeypatch.setattr(store, "_initialized", False)
+    monkeypatch.setattr(store, "_fernet", None)
+    # Le bot parle à l'API en mémoire (les tâches de fond finissent avant la réponse)
+    monkeypatch.setattr(backend, "_client", lambda timeout=30.0: httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=api_main.app), base_url="http://dayone"))
+    monkeypatch.setattr(backend, "POLL_SECONDS", 0)
     fake = FakeWhatsApp()
-    for name in ("send_text", "send_buttons", "download_media", "analyze_page", "save_record"):
+    for name in ("send_text", "send_buttons", "download_media"):
         monkeypatch.setattr(conversation, name, getattr(fake, name))
     conversation._sessions.clear()
     return fake
@@ -70,21 +74,41 @@ async def text(body: str):
     await conversation.handle_text(PHONE, body)
 
 
-async def photo(caption: str | None = None):
-    await conversation.handle_image(PHONE, "media-1", caption)
+async def photo(media_id: str = "page-a"):
+    await conversation.handle_image(PHONE, media_id, None)
 
 
-async def start_review(wa, pages: int = 1):
-    for _ in range(pages):
-        await photo()
+async def start_review(wa, pages=("page-a",), code="AMN-27"):
+    for media in pages:
+        await photo(media)
     await text("btn_done")
+    await text(code)
+
+
+def session():
+    return conversation.get_session(PHONE)
 
 
 def state():
-    return conversation.get_session(PHONE).state
+    return session().state
 
 
-# --- Réception des photos ---
+def db_record():
+    return store.record(session().record["id"], str)
+
+
+def fail_on(bad: bytes):
+    """Lecture qui refuse une photo précise (comme dayone.extract sur une image floue)."""
+    from api.demo import extract_page
+
+    def extract(data, use_model=True, **kw):
+        if data == bad:
+            raise ValueError("Presque aucun texte sur cette image : ce n'est pas une fiche à lire.")
+        return extract_page(data, use_model=use_model, **kw)
+    return lambda: extract
+
+
+# --- Photos et code ---
 
 @pytest.mark.asyncio
 async def test_greeting_and_help(wa):
@@ -95,40 +119,27 @@ async def test_greeting_and_help(wa):
 
 
 @pytest.mark.asyncio
-async def test_photos_are_grouped_until_done(wa):
-    await photo()
+async def test_photos_grouped_then_code_then_reading(wa):
+    await photo("page-a")
     assert "Page 1 reçue" in wa.last and wa.buttons[-1] == ["btn_done", "btn_cancel"]
-    await photo()
+    await photo("page-b")
     assert "Page 2 reçue" in wa.last
-    assert wa.analyses == 0  # rien n'est lu avant « Terminé »
-
-    start = len(wa.sent)
     await text("Terminé")
-    out = wa.all_since(start)
-    assert "2 page(s) regroupée(s)" in out
-    assert "Page 1/2 · Identification et antécédents" in wa.last
-    assert "1️⃣ Confirmer" in wa.last and "4️⃣ Reprendre" in wa.last
-    assert wa.analyses == 2
-    assert state() == conversation.State.REVIEW
+    assert "code patiente" in wa.last and state() == conversation.State.ASK_CODE
 
+    await photo("page-c")                         # photo au mauvais moment : refusée
+    assert "J'attends d'abord le *code patiente*" in wa.last
 
-@pytest.mark.asyncio
-async def test_text_while_collecting_reminds_done_button(wa):
-    await photo()
-    await text("et maintenant ?")
-    assert "Terminé" in wa.last and state() == conversation.State.COLLECTING
+    await text("$$$")
+    assert "Ce code n'est pas valide" in wa.last
+    await text("amn-27")
+    assert "Page 1/2" in wa.last and "1️⃣ Confirmer" in wa.last
+    rec = db_record()                             # le dossier existe dans la base du tableau de bord
+    assert rec["state"] == "NEEDS_REVIEW" and rec["patientCode"] == "AMN-27" and len(rec["pages"]) == 2
+    assert rec["midwifeId"].startswith("wa-") and PHONE not in rec["midwifeId"]
 
 
 # --- Menu ---
-
-@pytest.mark.asyncio
-async def test_review_lists_uncertain_fields(wa):
-    await start_review(wa)
-    _, uncertain = render.counts(SAMPLE)
-    assert uncertain, "l'exemple doit contenir un champ à vérifier"
-    assert f"⚠️ {len(uncertain)} à vérifier" in wa.last
-    assert uncertain[0].label in wa.last
-
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("answer", ["7", "bonjour", "", "1 2"])
@@ -136,163 +147,168 @@ async def test_invalid_option_is_refused_and_menu_resent(wa, answer):
     await start_review(wa)
     start = len(wa.sent)
     await text(answer)
-    out = wa.all_since(start)
-    assert "n'est pas une des options" in out
-    assert "1️⃣ Confirmer" in wa.last
-    assert state() == conversation.State.REVIEW
+    assert "n'est pas une des options" in wa.since(start)
+    assert "1️⃣ Confirmer" in wa.last and state() == conversation.State.REVIEW
 
 
 @pytest.mark.asyncio
-async def test_emoji_choice_is_understood(wa):
+async def test_view_values_grouped_by_section(wa):
     await start_review(wa)
     await text("3️⃣")
-    assert "Valeurs lues" in wa.sent[-2]
-
-
-@pytest.mark.asyncio
-async def test_view_values_shows_labels_not_empty_fields(wa):
-    await start_review(wa)
-    await text("3")
     values = wa.sent[-2]
-    assert "Âge : *31*" in values
-    assert "Grossesse désirée : *Oui*" in values
-    assert "Consanguinité" not in values  # case vide : non affichée
+    assert "Valeurs lues" in values and "*" in values
+    page = session().page
+    shown = [nf for nf in render.numbered_fields(page) if nf.field["status"] in render.SHOWN_STATUSES]
+    assert shown and f"{shown[0].number}. " in values
 
 
 @pytest.mark.asyncio
-async def test_confirm_all_pages_sends_clean_summary(wa):
-    await start_review(wa, pages=2)
-    await text("1")
-    assert "Page 1 confirmée" in wa.sent[-2] and "Page 2/2" in wa.last
-    await text("1")
-    assert "Registre confirmé" in wa.last and "Âge : *31*" in wa.last
-    assert len(wa.saved) == 1 and len(wa.saved[0]) == 2
-    assert state() == conversation.State.IDLE  # nouvelle session
-
-
-@pytest.mark.asyncio
-async def test_save_failure_keeps_record(wa, monkeypatch):
-    async def failing_save(user_phone, pages):
-        return False
-    monkeypatch.setattr(conversation, "save_record", failing_save)
+async def test_correction_is_saved_in_the_api(wa):
     await start_review(wa)
-    await text("1")
-    assert "n'a pas pu être enregistré" in wa.last
-    assert state() == conversation.State.REVIEW
-
-
-# --- Correction ---
-
-@pytest.mark.asyncio
-async def test_correct_a_field(wa):
-    await start_review(wa)
+    page = session().page
+    nf = next(f for f in render.numbered_fields(page) if f.kind == "integer")
     await text("2")
-    assert "Quel champ corriger" in wa.last and "1. Âge : *31*" in wa.last
-
-    await text("999")
+    assert "Quel champ corriger" in wa.last
+    await text("9999")
     assert "n'est pas un numéro de champ" in wa.last
-    assert state() == conversation.State.CHOOSE_FIELD
-
-    await text("1")  # Âge
-    assert "Âge" in wa.last and "actuel : 31" in wa.last
+    await text(str(nf.number))
+    assert nf.label in wa.last
     await text("trente")
-    assert "Format non reconnu" in wa.last
-    assert state() == conversation.State.EDIT_VALUE
-
-    await text("35")
-    assert "✅ *Âge* : 35" in wa.sent[-2]
+    assert "Format non reconnu" in wa.last and state() == conversation.State.EDIT_VALUE
+    await text("0")                               # 0 est une vraie valeur, pas « revenir »
     assert state() == conversation.State.REVIEW
-    field = conversation.get_session(PHONE).page["fields"]["age"]
-    assert field == {"value": 35, "status": "KNOWN", "confidence": 1.0, "source": "sage-femme", "previous": 31}
+
+    saved = db_record()["pages"][0]["fields"][nf.key]
+    assert saved["value"] == 0 and saved["origin"] in ("CORRECTED", "CONFIRMED") and saved["history"][-1]["by"].startswith("wa-")
 
 
 @pytest.mark.asyncio
-async def test_zero_is_a_value_and_retour_goes_back(wa):
+async def test_retour_leaves_value_entry(wa):
     await start_review(wa)
-    pdef = render.page_def_for(SAMPLE)
-    number = next(f.number for f in pdef.fields if f.kind == "integer" and f.id != "age")
     await text("2")
-    await text(str(number))
-    await text("0")  # 0 est une vraie valeur, pas « revenir »
-    assert state() == conversation.State.REVIEW
-    assert conversation.get_session(PHONE).page["fields"][pdef.by_number(number).id]["value"] == 0
-
-    await text("2")
-    await text(str(number))
+    await text("1")
     await text("retour")
     assert state() == conversation.State.REVIEW and "1️⃣ Confirmer" in wa.last
 
 
+# --- Confirmation, validation, patiente ---
+
 @pytest.mark.asyncio
-async def test_resolving_uncertain_field_clears_warning(wa):
+async def test_confirm_with_doubts_asks_twice_then_links_new_patient(wa):
     await start_review(wa)
-    _, uncertain = render.counts(SAMPLE)
-    for fdef in uncertain:
-        await text("2")
-        await text(str(fdef.number))
-        await text("?")
-    assert "Aucune incertitude restante" in wa.last
+    doubts = render.uncertain(session().page)
+    assert doubts, "la sortie démo choisie doit contenir des valeurs à vérifier"
+
+    await text("1")
+    assert "restent à vérifier" in wa.last and state() == conversation.State.CONFIRM_UNCERTAIN
+    await text("8")
+    assert "Répondez 1 ou 2" in wa.sent[-2]
+    await text("1")                               # la sage-femme confirme ce qu'elle a vérifié
+    assert "Aucune patiente suivie avec le code *AMN-27*" in wa.last
+    assert db_record()["state"] == "VALIDATED"
+
+    await text("1")                               # créer la patiente
+    assert "Registre enregistré" in wa.last and "tableau de bord" in wa.last
+    snap = store.snapshot(str)
+    rec = next(iter(snap["records"].values()))
+    assert rec["state"] == "SYNCED" and snap["patients"][rec["patientId"]]["code"] == "AMN-27"
+    assert state() == conversation.State.IDLE
 
 
 @pytest.mark.asyncio
-async def test_show_all_fields_includes_empty_ones(wa):
+async def test_second_visit_proposes_existing_patient(wa):
     await start_review(wa)
+    await text("1")
+    await text("1")
+    await text("1")                               # 1re visite : patiente créée
+    first = next(iter(store.snapshot(str)["patients"]))
+
+    await start_review(wa, pages=("page-b",), code="AMN-27")
+    await text("1")
+    if state() == conversation.State.CONFIRM_UNCERTAIN:
+        await text("1")
+    assert "déjà suivie" in wa.last and "AMN-27 · même code" in wa.last
+    await text("1")                               # la patiente proposée
+    rec = db_record() if session().record else None
+    linked = [r for r in store.snapshot(str)["records"].values() if r.get("patientId") == first]
+    assert len(linked) == 2 and rec is None
+
+
+# --- Reprise et pages illisibles ---
+
+@pytest.mark.asyncio
+async def test_retake_rereads_only_that_page(wa, monkeypatch):
+    await start_review(wa, pages=("page-a", "page-b"))
+    nf = next(f for f in render.numbered_fields(session().page) if f.kind == "integer")
     await text("2")
-    await text("tout")
-    assert "Consanguinité" in wa.last
+    await text(str(nf.number))
+    await text("42")                              # correction sur la page 1
+    await text("1")
+    if state() == conversation.State.CONFIRM_UNCERTAIN:
+        await text("1")
+    assert "Page 2/2" in wa.last
 
-
-# --- Reprise et erreurs d'analyse ---
-
-@pytest.mark.asyncio
-async def test_retake_photo_replaces_page(wa):
-    await start_review(wa)
     await text("4")
-    assert "nouvelle photo de la page 1" in wa.last
     assert state() == conversation.State.RETAKE
-    await photo()
-    assert wa.analyses == 2
-    assert state() == conversation.State.REVIEW and "Page 1/1" in wa.last
+    await photo("page-b-nette")
+    assert "Page 2/2" in wa.last and state() == conversation.State.REVIEW
+    rec = db_record()
+    assert rec["pages"][0]["fields"][nf.key]["value"] == 42      # correction de la page 1 gardée
+    assert any("RETAKE page 1" == h.get("note") for h in rec["history"])
 
 
 @pytest.mark.asyncio
-async def test_failed_page_offers_retake_or_skip(wa):
-    wa.next_pages = [backend.AnalysisError("Photo trop floue."), copy.deepcopy(SAMPLE)]
-    await start_review(wa, pages=2)
-    assert "lecture impossible" in wa.last and "Photo trop floue." in wa.last
-
-    await text("1")  # confirmer une page illisible : refusé
+async def test_unreadable_page_retake_or_skip(wa, monkeypatch):
+    monkeypatch.setattr(store, "extractor", fail_on(b"page-floue"))
+    await start_review(wa, pages=("page-floue", "page-a"))
+    assert "lecture impossible" in wa.last and "Presque aucun texte" in wa.last
+    await text("1")                               # confirmer une page illisible : refusé
     assert "Répondez 4 ou 5" in wa.sent[-2]
-
     await text("5")
     assert "Page ignorée" in wa.sent[-2] and "Page 1/1" in wa.last
-    await text("1")
-    assert len(wa.saved[0]) == 1
+    assert len(db_record()["pages"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_only_page_failed_and_skipped_resets(wa):
-    wa.next_pages = [backend.AnalysisError("Illisible.")]
-    await start_review(wa)
+async def test_only_page_unreadable_must_be_retaken(wa, monkeypatch):
+    monkeypatch.setattr(store, "extractor", fail_on(b"page-floue"))
+    await start_review(wa, pages=("page-floue",))
+    assert "lecture impossible" in wa.last and "5️⃣" not in wa.last
     await text("5")
-    assert "Aucune page à enregistrer" in wa.last
-    assert state() == conversation.State.IDLE
+    assert "Répondez 4" in wa.sent[-2]
+    await text("4")
+    await photo("page-a")
+    assert "Page 1/1" in wa.last and "1️⃣ Confirmer" in wa.last
 
 
 @pytest.mark.asyncio
 async def test_photo_during_review_is_not_mixed_in(wa):
     await start_review(wa)
-    await photo()
+    await photo("page-b")
     assert "vérification est en cours" in wa.last
-    assert wa.analyses == 1
+    assert len(db_record()["pages"]) == 1
 
 
 @pytest.mark.asyncio
-async def test_cancel_resets_everything(wa):
+async def test_cancel_keeps_record_for_dashboard(wa):
     await start_review(wa)
-    await text("btn_cancel")
-    assert "Registre annulé" in wa.last
+    record_id = session().record["id"]
+    await text("annuler")
+    assert "reste « à vérifier » sur le tableau de bord" in wa.last
     assert state() == conversation.State.IDLE
+    assert store.record(record_id, str)["state"] == "NEEDS_REVIEW"
+
+
+@pytest.mark.asyncio
+async def test_api_down_gives_clear_message(wa, monkeypatch):
+    def broken(timeout=30.0):
+        return httpx.AsyncClient(transport=httpx.MockTransport(lambda r: (_ for _ in ()).throw(httpx.ConnectError("down"))),
+                                 base_url="http://dayone")
+    monkeypatch.setattr(backend, "_client", broken)
+    await photo()
+    await text("btn_done")
+    await text("AMN-27")
+    assert "injoignable" in wa.last
 
 
 # --- Rendu et saisie ---
@@ -326,38 +342,14 @@ def test_format_value():
     assert render.format_value("text", {"value": None, "status": "ILLEGIBLE"}) == "illisible"
 
 
-# --- Client de l'API d'analyse ---
+def test_link_text_numbers_beyond_nine():
+    cands = [{"patientId": f"p{i}", "code": f"C{i}", "reasons": [{"kind": "SAME_CODE"}]} for i in range(9)]
+    out = render.link_text("C1", cands)
+    assert "10. Non, nouvelle patiente" in out and "11. Je ne sais pas" in out
 
-def _mock_api(monkeypatch, handler):
-    real_client = httpx.AsyncClient
 
-    def factory(*args, **kwargs):
-        kwargs["transport"] = httpx.MockTransport(handler)
-        return real_client(*args, **kwargs)
-
-    monkeypatch.setattr(backend.httpx, "AsyncClient", factory)
-    monkeypatch.setenv("OUR_API_URL", "http://api.test/analyze")
+def test_midwife_id_hides_phone(monkeypatch):
+    monkeypatch.setenv("APP_SECRET", "s")
     get_settings.cache_clear()
-
-
-@pytest.mark.asyncio
-async def test_analyze_page_accepts_dayone_output(monkeypatch):
-    _mock_api(monkeypatch, lambda req: httpx.Response(200, json={"prediction": SAMPLE}))
-    page = await backend.analyze_page(b"img", "image/jpeg", PHONE)
-    assert page["page_type"] == "identification_antecedents"
-
-
-@pytest.mark.asyncio
-async def test_analyze_page_relays_business_error(monkeypatch):
-    _mock_api(monkeypatch, lambda req: httpx.Response(422, json={"detail": "Photo trop floue."}))
-    with pytest.raises(backend.AnalysisError, match="Photo trop floue."):
-        await backend.analyze_page(b"img", "image/jpeg", PHONE)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("response", [httpx.Response(500, text="boom"), httpx.Response(200, json={"ok": True})])
-async def test_analyze_page_hides_server_errors(monkeypatch, response):
-    _mock_api(monkeypatch, lambda req: response)
-    with pytest.raises(backend.AnalysisError) as exc:
-        await backend.analyze_page(b"img", "image/jpeg", PHONE)
-    assert "boom" not in str(exc.value)
+    mid = backend.midwife_id(PHONE)
+    assert mid.startswith("wa-") and PHONE not in mid and mid == backend.midwife_id(PHONE)

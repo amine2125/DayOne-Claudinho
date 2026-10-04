@@ -64,6 +64,14 @@ export const fr = {
   'state.MANUAL_REVIEW_REQUIRED': 'Saisie à la main',
   'failure.LAYOUT': 'La page n’a pas été reconnue (photo ou mise en page différente).',
 
+  // why the reading doubts a field (dayone/extract.py)
+  'reason.non_rattache': 'Écriture rattachée à aucun champ',
+  'reason.etiquette_douteuse': 'Étiquette mal lue',
+  'reason.champ_nouveau': 'Champ inconnu du registre',
+  'reason.choix_nouveau': 'Case inconnue du registre',
+  'reason.valeur_douteuse': 'Lecture incertaine',
+  'review.readAs': 'lu « {v} »',
+
   // page types
   'page.unknown': 'Page non reconnue',
   'page.fiche_surveillance': 'Fiche de surveillance',

@@ -1,7 +1,7 @@
 /**
- * Schema-driven rendering. Sections and fields come straight from schema/*.json,
- * the same templates the Python pipeline uses. Adding a field there adds it here:
- * no screen has to change.
+ * Reference pages (schema/*.json): field labels, kinds and sections of the two registry pages
+ * the team annotated. The reading itself has no template; the API files the fields it reads
+ * under these keys and sections when the labels match, and keeps the others as read.
  */
 import accouchement from '@schema/accouchement.json'
 import identification from '@schema/identification_antecedents.json'
@@ -23,8 +23,9 @@ export interface FieldDef {
 interface SchemaFile {
   page_type: string
   title: string
-  image_size: number[]
-  excluded_zones: Record<string, number[]>
+  // Template-era keys, absent since the reading works without a template
+  image_size?: number[]
+  excluded_zones?: Record<string, number[]>
   fields: FieldDef[]
 }
 
@@ -47,8 +48,8 @@ function build(raw: SchemaFile): PageSchema {
   return {
     pageType: raw.page_type as PageType,
     title: raw.title,
-    imageSize: [raw.image_size[0], raw.image_size[1]],
-    excludedZones: Object.values(raw.excluded_zones).map((z) => z as BBox),
+    imageSize: raw.image_size ? [raw.image_size[0], raw.image_size[1]] : [0, 0],
+    excludedZones: Object.values(raw.excluded_zones ?? {}).map((z) => z as BBox),
     fields: raw.fields as FieldDef[],
     sections,
   }
@@ -59,7 +60,7 @@ export const SCHEMAS: Partial<Record<PageType, PageSchema>> = {
   accouchement: build(accouchement as SchemaFile),
 }
 
-/** Pages the AI can read today. The others are kept as images and entered by hand. */
+/** Pages with a reference schema. Any page can be read; only these get reference sections. */
 export function isReadable(pageType: PageType): boolean {
   return pageType in SCHEMAS
 }
