@@ -8,6 +8,10 @@ import { API_URL, httpApi } from './httpApi'
 export const api: DayOneApi = httpApi
 
 /** Approved result of a record, as stored by the API at validation (JSON). */
+export function pdfUrl(recordId: string): string {
+  return `${API_URL}/api/records/${recordId}/pdf`
+}
+
 export function finalUrl(recordId: string): string {
   return `${API_URL}/api/records/${recordId}/final`
 }

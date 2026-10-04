@@ -46,10 +46,10 @@ app = FastAPI(title="DayOne — lecture du registre", version="1.1.0", lifespan=
 
 # Clé de l'API (DAYONE_API_KEY, créée par DayOne.command). Sans clé configurée : aucune vérification.
 # Avec : toute route l'exige (« Authorization: Bearer <clé> »), sauf /health et la lecture du tableau
-# de bord (instantané, images déjà masquées) depuis cette machine même.
+# de bord (instantané, images déjà masquées, résultat final et sa fiche PDF) depuis cette machine même.
 API_KEY = os.environ.get("DAYONE_API_KEY", "").strip()
 LOOPBACK = {"127.0.0.1", "::1", "localhost"}
-LOCAL_READS = re.compile(r"^/api/(snapshot|pages/[^/]+/image)$")
+LOCAL_READS = re.compile(r"^/api/(snapshot|pages/[^/]+/image|records/[^/]+/(final|pdf))$")
 
 
 @app.middleware("http")
@@ -202,6 +202,20 @@ def final(record_id: str) -> Response:
     body = json.dumps(data, ensure_ascii=False, indent=2)
     return Response(body, media_type="application/json",
                     headers={"Content-Disposition": f'inline; filename="{record_id}.json"'})
+
+
+@app.get("/api/records/{record_id}/pdf")
+def record_pdf(record_id: str) -> Response:
+    """Fiche PDF du dossier validé (résultat final mis en page), fabriquée à la demande, jamais stockée."""
+    _record_or_404(record_id)
+    final = store.final_json(record_id)
+    if final is None:
+        raise HTTPException(404, "Dossier pas encore validé : pas de fiche PDF")
+    from api.pdf import build_pdf
+
+    name = re.sub(r"[^A-Za-z0-9_-]+", "_", final.get("patient_code") or record_id)
+    return Response(build_pdf(final), media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="DayOne_{name}.pdf"'})
 
 
 @app.get("/api/records/{record_id}")

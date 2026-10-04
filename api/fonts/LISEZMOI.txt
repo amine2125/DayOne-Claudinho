@@ -1,0 +1,2 @@
+Polices Noto Sans et Noto Sans Arabic (Google, projet Noto), sous licence SIL Open Font License 1.1 (OFL.txt).
+Utilisées par api/pdf.py pour la fiche PDF : même rendu sur toutes les machines, français, anglais et arabe.

@@ -27,6 +27,7 @@ class FakeWhatsApp:
     def __init__(self):
         self.sent: list[str] = []
         self.buttons: list[list[str]] = []
+        self.documents: list[tuple[str, bytes]] = []
 
     async def send_text(self, to, body):
         self.sent.append(body)
@@ -34,6 +35,10 @@ class FakeWhatsApp:
     async def send_buttons(self, to, body, buttons):
         self.sent.append(body)
         self.buttons.append([bid for bid, _ in buttons])
+
+    async def send_document(self, to, data, filename, caption=""):
+        self.documents.append((filename, data))
+        self.sent.append(caption)
 
     async def send_list(self, to, body, button, rows):
         self.sent.append(body)
@@ -73,7 +78,7 @@ def wa(monkeypatch, tmp_path):
         transport=httpx.ASGITransport(app=api_main.app), base_url="http://dayone"))
     monkeypatch.setattr(backend, "POLL_SECONDS", 0)
     fake = FakeWhatsApp()
-    for name in ("send_text", "send_buttons", "send_list", "download_media"):
+    for name in ("send_text", "send_buttons", "send_list", "send_document", "download_media"):
         monkeypatch.setattr(conversation, name, getattr(fake, name))
     conversation._sessions.clear()
     return fake
@@ -197,7 +202,10 @@ async def test_final_json_is_stored_with_corrections_and_patient(wa):
     assert final["patient_id"] and final["visit_id"] and final["validated_at"] and final["linked_at"]
     corrected = next(f for f in final["pages"][0]["fields"] if f["key"] == nf.key)
     assert corrected["value"] == 41 and corrected["origin"] == "CORRECTED"
-    assert record_id in wa.last and "Registre enregistré" in wa.last   # récapitulatif tiré du JSON final
+    assert record_id in wa.sent[-2] and "Registre enregistré" in wa.sent[-2]   # récapitulatif tiré du JSON final
+    # Puis la fiche PDF, en document à télécharger
+    name, pdf = wa.documents[-1]
+    assert name == "DayOne_AMN-27.pdf" and pdf.startswith(b"%PDF") and "PDF" in wa.last
 
 
 # --- Menu ---
@@ -269,7 +277,7 @@ async def test_confirm_with_doubts_asks_twice_then_links_new_patient(wa):
     assert db_record()["state"] == "VALIDATED"
 
     await text("1")                               # créer la patiente
-    assert "Registre enregistré" in wa.last and "tableau de bord" in wa.last
+    assert "Registre enregistré" in wa.sent[-2] and "tableau de bord" in wa.sent[-2] and wa.documents
     snap = store.snapshot(str)
     rec = next(iter(snap["records"].values()))
     assert rec["state"] == "SYNCED" and snap["patients"][rec["patientId"]]["code"] == "AMN-27"
@@ -454,3 +462,12 @@ def test_table_cells_share_one_line_per_row():
     out = render.values_text(page)
     assert "HTA : 1. Famille de la femme *aucun* · 2. ⚠️ Mari/famille *Père*" in out
     assert "3. Diabète | Famille de la femme : *aucun*" in out and "4. Age : *31*" in out   # case seule : ligne normale
+
+
+@pytest.mark.asyncio
+async def test_pdf_failure_does_not_break_the_end(wa, monkeypatch):
+    async def broken(*_a, **_k):
+        raise backend.ApiError("panne")
+    monkeypatch.setattr(backend, "get_pdf", broken)
+    await conversation._send_pdf(PHONE, "rec_x")
+    assert "PDF n'a pas pu être envoyée" in wa.last

@@ -190,6 +190,37 @@ async def send_list(to: str, body: str, button: str, rows: list[tuple[str, str]]
     logger.info("List sent successfully to %s", mask_phone(to))
 
 
+async def send_document(to: str, data: bytes, filename: str, caption: str = "",
+                        mime_type: str = "application/pdf") -> None:
+    """Send a file (the record's PDF) that the user can open and download.
+
+    1. Upload the file to Meta (POST /{phone_number_id}/media) -> media id.
+    2. Send a `document` message pointing to that media id.
+    """
+    settings = get_settings()
+    base = f"{settings.graph_api_url}/{settings.PHONE_NUMBER_ID}"
+    auth = {"Authorization": f"Bearer {settings.WHATSAPP_TOKEN}"}
+    async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=10.0)) as client:
+        upload = await client.post(f"{base}/media", headers=auth,
+                                   data={"messaging_product": "whatsapp", "type": mime_type},
+                                   files={"file": (filename, data, mime_type)})
+        if upload.is_error:
+            logger.error("Meta media upload error %s: %s", upload.status_code, upload.text[:300])
+        upload.raise_for_status()
+        payload = {
+            "messaging_product": "whatsapp",
+            "to": to,
+            "type": "document",
+            "document": {"id": upload.json()["id"], "filename": filename, "caption": caption[:1024]},
+        }
+        response = await client.post(f"{base}/messages", headers={**auth, "Content-Type": "application/json"},
+                                     json=payload)
+        if response.is_error:
+            logger.error("Meta send error %s: %s", response.status_code, response.text[:300])
+        response.raise_for_status()
+    logger.info("Document sent successfully to %s (%d bytes)", mask_phone(to), len(data))
+
+
 async def mark_as_read(message_id: str) -> None:
     """Mark an incoming WhatsApp message as read.
 

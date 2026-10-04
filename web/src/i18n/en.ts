@@ -71,6 +71,7 @@ export const en: Dict = {
   'review.readAs': 'read “{v}”',
   'record.codePending': 'Code pending',
   'record.finalJson': 'Final result (JSON)',
+  'record.pdf': 'PDF sheet',
   'page.unknown': 'Unrecognised page',
   'page.fiche_surveillance': 'Monitoring sheet',
   'page.identification_antecedents': 'Identification and history',
